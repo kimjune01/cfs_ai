@@ -60,6 +60,12 @@ function isDefinitionChunk(chunk: Chunk, term: string): boolean {
   );
 }
 
+function formatChunksAsContext(chunks: Chunk[]): string {
+  return chunks
+    .map((c) => `[CFS Page ${c.start_page} | ${c.icao} | ${c.section_group}]\n${c.text}`)
+    .join("\n\n---\n\n");
+}
+
 async function retrieveTopK(question: string, k = 5): Promise<Chunk[]> {
   const [embedderInstance, cfsTable] = await Promise.all([
     getEmbedder(),
@@ -68,13 +74,9 @@ async function retrieveTopK(question: string, k = 5): Promise<Chunk[]> {
 
   const upperQuestion = question.toUpperCase();
 
-  // Keyword pass 1: force-include all pages belonging to mentioned ICAO codes
   const icaoCodes = extractIcaoCodes(upperQuestion);
-
-  // Keyword pass 2: force-include definition pages for abbreviations
   const abbrevs = extractAbbreviations(upperQuestion);
 
-  // Semantic search via LanceDB
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const output = await (embedderInstance as any)(question, {
     pooling: "mean",
@@ -89,10 +91,12 @@ async function retrieveTopK(question: string, k = 5): Promise<Chunk[]> {
 
   const semanticChunks: Chunk[] = semanticResults.map(({ vector: _vec, ...chunk }) => chunk);
 
-  // Build keyword chunks from full table scan (only text/page fields needed)
-  const allRows = (await cfsTable.query().select(["id", "icao", "section_group", "start_page", "end_page", "text"]).toArray()) as Chunk[];
+  // Full table scan only when keyword extraction found something to look up
+  const needsTableScan = icaoCodes.length > 0 || abbrevs.length > 0;
+  const allRows: Chunk[] = needsTableScan
+    ? (await cfsTable.query().select(["id", "icao", "section_group", "start_page", "end_page", "text"]).toArray()) as Chunk[]
+    : [];
 
-  // ICAO match: compare directly against the indexed icao field — no text scan
   const icaoChunks = icaoCodes.length
     ? allRows.filter((c) => icaoCodes.includes(c.icao))
     : [];
@@ -101,7 +105,6 @@ async function retrieveTopK(question: string, k = 5): Promise<Chunk[]> {
     ? allRows.filter((c) => abbrevs.some((abbr) => isDefinitionChunk(c, abbr)))
     : [];
 
-  // Merge: keyword pages first, then semantic results not already included
   const keywordIds = new Set([...icaoChunks, ...abbrevChunks].map((c) => c.id));
   const keywordPages = [...new Map(
     [...icaoChunks, ...abbrevChunks].map((c) => [c.id, c])
@@ -113,17 +116,39 @@ async function retrieveTopK(question: string, k = 5): Promise<Chunk[]> {
   return [...keywordPages, ...additionalSemantic.slice(0, remaining)];
 }
 
+const SEARCH_TOOL_NAME = "search_cfs";
+
 const SYSTEM_PROMPT = `You are a knowledgeable assistant for Canadian pilots. You answer questions ONLY about the NavCanada Canadian Flight Supplement (CFS).
 
 Rules:
 - Answer ONLY questions related to the Canadian Flight Supplement: aerodromes, circuit altitudes, runway data, radio frequencies, lighting, fuel, operating hours, FIC, FLT PLN, NOTAM files, airspace, or other CFS content.
 - If the question is not about the CFS or Canadian aviation, respond with exactly: "I can only answer questions about the Canadian Flight Supplement. Please ask me about Canadian aerodromes, frequencies, circuit altitudes, runway data, or other CFS topics."
-- Base answers solely on the CFS excerpts provided below. Do not invent or infer information not present in the context.
-- If the context does not contain enough information to answer, say so clearly rather than guessing.
-- Be concise and precise — pilots value accuracy over verbosity.
+- Use the ${SEARCH_TOOL_NAME} tool to retrieve relevant CFS data before answering. You may call it multiple times with different phrasings or more specific queries if the first results are insufficient.
+- Base answers solely on what the tool returns. Do not invent or infer information not present in the results.
+- If the retrieved context does not contain enough information to answer, say so clearly and suggest what the pilot should look up directly.
+- If the question is ambiguous (e.g. no ICAO code specified, multiple aerodromes possible), ask a brief clarifying question before searching.
+- Be concise and precise — pilots value accuracy over verbosity.`;
 
-CFS Context:
-{context}`;
+const SEARCH_TOOL: Anthropic.Tool = {
+  name: SEARCH_TOOL_NAME,
+  description:
+    "Search the Canadian Flight Supplement vector database. Call multiple times with different phrasings or more specific queries to improve results.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      query: {
+        type: "string",
+        description:
+          "The search query. Use specific aviation terminology, ICAO codes, or CFS section names for best results.",
+      },
+    },
+    required: ["query"],
+  },
+};
+
+const MAX_TOOL_ITERATIONS = 10;
+
+type HistoryMessage = { role: "user" | "assistant"; content: string };
 
 export async function POST(request: NextRequest) {
   let body: unknown;
@@ -140,29 +165,74 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Question is required." }, { status: 400 });
   }
 
+  const history: HistoryMessage[] =
+    ((body as Record<string, unknown>)?.history as HistoryMessage[]) ?? [];
+
   try {
-    const topChunks = await retrieveTopK(question);
-    const context = topChunks
-      .map((c) => `[CFS Page ${c.start_page} | ${c.icao} | ${c.section_group}]\n${c.text}`)
-      .join("\n\n---\n\n");
-
     const client = new Anthropic();
-    const message = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT.replace("{context}", context),
-      messages: [{ role: "user", content: question }],
-    });
 
-    const answer =
-      message.content[0].type === "text" ? message.content[0].text : "";
+    const messages: Anthropic.MessageParam[] = [
+      ...history.map(({ role, content }) => ({ role, content })),
+      { role: "user", content: question },
+    ];
 
-    const seenPages = new Set<number>();
-    const sources = topChunks
-      .filter((c) => !seenPages.has(c.start_page) && seenPages.add(c.start_page))
-      .map((c) => ({ page: c.start_page, text: c.text }));
+    const seenChunkIds = new Set<number>();
+    const allChunks: Chunk[] = [];
+    let iterations = 0;
 
-    return Response.json({ answer, sources });
+    while (iterations < MAX_TOOL_ITERATIONS) {
+      iterations++;
+
+      const response = await client.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1024,
+        system: SYSTEM_PROMPT,
+        tools: [SEARCH_TOOL],
+        messages,
+      });
+
+      messages.push({ role: "assistant", content: response.content });
+
+      if (response.stop_reason === "end_turn") {
+        const answer = response.content
+          .filter((b) => b.type === "text")
+          .map((b) => (b as Anthropic.TextBlock).text)
+          .join("");
+
+        const seenPages = new Set<number>();
+        const sources = allChunks
+          .filter((c) => !seenPages.has(c.start_page) && seenPages.add(c.start_page))
+          .map((c) => ({ page: c.start_page, text: c.text }));
+
+        return Response.json({ answer, sources });
+      }
+
+      // Parallel tool calls — Claude may request multiple searches in one turn
+      const toolUseBlocks = response.content.filter(
+        (b) => b.type === "tool_use" && b.name === SEARCH_TOOL_NAME
+      ) as Anthropic.ToolUseBlock[];
+
+      const toolResults: Anthropic.ToolResultBlockParam[] = await Promise.all(
+        toolUseBlocks.map(async (block) => {
+          const query = (block.input as { query: string }).query;
+          const chunks = await retrieveTopK(query);
+
+          const newChunks = chunks.filter((c) => !seenChunkIds.has(c.id));
+          newChunks.forEach((c) => seenChunkIds.add(c.id));
+          allChunks.push(...newChunks);
+
+          return {
+            type: "tool_result" as const,
+            tool_use_id: block.id,
+            content: formatChunksAsContext(chunks) || "No results found for this query.",
+          };
+        })
+      );
+
+      messages.push({ role: "user", content: toolResults });
+    }
+
+    return Response.json({ error: "Agent exceeded maximum search iterations." }, { status: 500 });
   } catch (e) {
     console.error("CFS API error:", e);
     return Response.json({ error: "Failed to process your question." }, { status: 500 });

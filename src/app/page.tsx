@@ -21,10 +21,15 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => { abortRef.current?.abort(); };
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages]);
 
   function toggleSource(key: string) {
     setExpandedSources((prev) => {
@@ -42,13 +47,23 @@ export default function Home() {
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: question }]);
     setLoading(true);
+    abortRef.current = new AbortController();
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({
+          question,
+          history: messages.map(({ role, content }) => ({ role, content })),
+        }),
+        signal: abortRef.current.signal,
       });
+
+      if (!res.ok) {
+        throw new Error(`Server error ${res.status}`);
+      }
+
       const data = await res.json();
       setMessages((prev) => [
         ...prev,
@@ -58,7 +73,8 @@ export default function Home() {
           sources: data.sources,
         },
       ]);
-    } catch {
+    } catch (e) {
+      if (e instanceof Error && e.name === "AbortError") return;
       setMessages((prev) => [
         ...prev,
         {

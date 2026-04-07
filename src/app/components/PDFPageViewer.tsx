@@ -13,6 +13,7 @@ export default function PDFPageViewer({ pageNumber }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    let pdfDoc: { destroy(): void } | null = null;
 
     async function render() {
       try {
@@ -20,7 +21,8 @@ export default function PDFPageViewer({ pageNumber }: Props) {
         pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.mjs";
 
         const pdf = await pdfjsLib.getDocument("/CFS.pdf").promise;
-        if (cancelled) return;
+        pdfDoc = pdf;
+        if (cancelled) { pdf.destroy(); return; }
 
         const page = await pdf.getPage(pageNumber);
         if (cancelled) return;
@@ -32,11 +34,10 @@ export default function PDFPageViewer({ pageNumber }: Props) {
         canvas.width = viewport.width;
         canvas.height = viewport.height;
 
-        await page.render({
-          canvasContext: canvas.getContext("2d")!,
-          viewport,
-          canvas,
-        }).promise;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        await page.render({ canvasContext: ctx, viewport, canvas }).promise;
 
         if (!cancelled) setLoading(false);
       } catch (e: unknown) {
@@ -49,7 +50,10 @@ export default function PDFPageViewer({ pageNumber }: Props) {
     }
 
     render();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      pdfDoc?.destroy();
+    };
   }, [pageNumber]);
 
   if (error) return <p className="text-xs text-red-400 px-2">{error}</p>;
