@@ -1,20 +1,124 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #06080f;
+  --surface: #0c1018;
+  --surface-2: #111922;
+  --border: #192233;
+  --border-mid: #1e2d42;
+  --accent-cyan: #00c8e8;
+  --accent-amber: #f0a500;
+  --accent-green: #00d97e;
+  --text-primary: #d8e8f2;
+  --text-muted: #3d5a72;
+  --text-dim: #223040;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg);
+  --color-foreground: var(--text-primary);
+  --font-sans: var(--font-jetbrains);
+  --font-mono: var(--font-jetbrains);
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-jetbrains), "JetBrains Mono", monospace;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Dot grid atmosphere */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(circle, #192233 1px, transparent 1px);
+  background-size: 28px 28px;
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Vignette */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(6, 8, 15, 0.7) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.font-display {
+  font-family: var(--font-barlow), "Barlow Condensed", sans-serif;
+}
+
+/* Placeholder */
+input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-mid);
+  border-radius: 2px;
+}
+
+/* Animations */
+@keyframes pulse-label {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes radar-sweep {
+  0% { transform: scaleX(0); transform-origin: left; opacity: 0.9; }
+  100% { transform: scaleX(1); transform-origin: left; opacity: 0; }
+}
+
+.msg-enter {
+  animation: fade-up 0.25s ease-out both;
+}
+
+.blink {
+  animation: blink-cursor 1s step-end infinite;
+}
+
+.pulse-label {
+  animation: pulse-label 2s ease-in-out infinite;
 }
