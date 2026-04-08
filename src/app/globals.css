@@ -1,17 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #06080f;
-  --surface: #0c1018;
-  --surface-2: #111922;
-  --border: #192233;
-  --border-mid: #1e2d42;
-  --accent-cyan: #00c8e8;
-  --accent-amber: #f0a500;
-  --accent-green: #00d97e;
-  --text-primary: #d8e8f2;
-  --text-muted: #3d5a72;
-  --text-dim: #223040;
+  --bg: #F0F3F7;
+  --surface: #FFFFFF;
+  --surface-2: #E8ECF2;
+  --border: #D0D8E4;
+  --border-mid: #B8C4D4;
+  --accent-cyan: #0076A8;
+  --accent-amber: #B87200;
+  --accent-green: #007A47;
+  --text-primary: #111B28;
+  --text-muted: #4A6070;
+  --text-dim: #8A9DB0;
 }
 
 @theme inline {
@@ -45,9 +45,9 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
-  background-image: radial-gradient(circle, #192233 1px, transparent 1px);
+  background-image: radial-gradient(circle, #B8C4D4 1px, transparent 1px);
   background-size: 28px 28px;
-  opacity: 0.55;
+  opacity: 0.45;
   pointer-events: none;
   z-index: 0;
 }
@@ -57,7 +57,7 @@ body::after {
   content: "";
   position: fixed;
   inset: 0;
-  background: radial-gradient(ellipse at center, transparent 40%, rgba(6, 8, 15, 0.7) 100%);
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(176, 192, 210, 0.25) 100%);
   pointer-events: none;
   z-index: 0;
 }
@@ -82,6 +82,7 @@ input::placeholder {
 ::-webkit-scrollbar-thumb {
   background: var(--border-mid);
   border-radius: 2px;
+  opacity: 0.6;
 }
 
 /* Animations */
