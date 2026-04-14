@@ -37,7 +37,7 @@ const DECISION_PROMPT = `You are the Canadian Flight Supplement Aviation Assista
 {"action":"answer","text":"your answer","pages":[N,M]} — only if the results contain a value explicitly labeled as what was asked. List ONLY pages you used.
 {"action":"vision"} — if the specific field is not explicitly labeled, results are ambiguous, or confidence is low. When in doubt, choose vision.
 
-DO NOT infer, interpret adjacent fields, or assume a value applies to the question. If the label does not match what was asked, choose vision.`;
+DO NOT infer, interpret adjacent fields, or assume a value applies to the question. A field only qualifies as an answer if its label directly matches what was asked. If the label does not match, choose vision.`;
 
 export async function runAgentLoop(
   question: string,
