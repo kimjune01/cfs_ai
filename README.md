@@ -41,7 +41,7 @@ User question
 
 **High-effort mode** — triggered when the pilot repeats a question, expresses doubt, or asks to verify. Skips vector search entirely and reads the PDF directly.
 
-**No API key required** — the app uses Claude Code's existing macOS keychain OAuth session. The Anthropic API key is explicitly stripped from child process environments to prevent it overriding keychain auth.
+**No API key required** — the app uses Claude Code's existing keychain OAuth session. The Anthropic API key is explicitly stripped from child process environments to prevent it overriding keychain auth. Requires `claude` to be on `PATH`.
 
 ## Tech stack
 
@@ -68,7 +68,9 @@ cfs_ai/
 │   ├── embed_chunks.mjs           # chunks.json → LanceDB (run once)
 │   ├── cfs_search.mjs             # Vector search helper (called per request)
 │   ├── cfs_query.mjs              # Standalone agentic RAG script
-│   └── cfs_vision_query.mjs       # Standalone vision pipeline script
+│   ├── cfs_vision_query.mjs       # Standalone vision pipeline script
+│   ├── eval.ts                    # LLM-as-judge eval runner
+│   └── eval-cases.ts              # Golden Q&A test cases
 ├── data/
 │   ├── chunks.json                # Parsed aerodrome chunks
 │   └── lancedb/                   # Vector index
@@ -116,6 +118,18 @@ cfs_ai/
    ```
 
 The app will be available at `http://localhost:3000`.
+
+## Evals
+
+The eval suite runs 8 golden Q&A cases through the full agent pipeline and uses Claude as a judge to verify answer quality. Cases cover tower vs. MF frequency labeling, fuel availability, circuit altitudes, and hallucination guards.
+
+```bash
+npm run eval                          # run all cases
+npm run eval -- --filter=regression   # run a tagged subset
+npm run eval -- --timeout=120000      # override per-case timeout (ms)
+```
+
+Exit code 0 = all pass, 1 = any failures.
 
 ## Usage tips
 

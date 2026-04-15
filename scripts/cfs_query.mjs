@@ -19,7 +19,7 @@ const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, "..");
 const searchScript = join(__dirname, "cfs_search.mjs");
-const CLAUDE_BIN = "/Users/umeshdinkar/.local/bin/claude";
+const CLAUDE_BIN = "claude";
 
 const userQuery = process.argv.slice(2).join(" ").trim();
 if (!userQuery) {

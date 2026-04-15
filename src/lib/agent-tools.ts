@@ -7,7 +7,7 @@ import type { EmitFn, Turn, VectorChunk } from "./types";
 
 const execFileAsync = promisify(execFile);
 const PDF_PATH = join(process.cwd(), "public", "CFS.pdf");
-const CLAUDE_BIN = "/Users/umeshdinkar/.local/bin/claude";
+const CLAUDE_BIN = "claude";
 const CFS_SEARCH = join(process.cwd(), "scripts", "cfs_search.mjs");
 
 // Strip ANTHROPIC_API_KEY so claude binary uses keychain auth
@@ -315,7 +315,7 @@ export async function rephraseMultipleQueries(
   );
   const queries = parseJsonStringArray(raw);
   if (queries.length !== icaos.length) {
-    return icaos.map((icao) => icao);
+    return icaos;
   }
   return queries;
 }

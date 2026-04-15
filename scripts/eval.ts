@@ -17,7 +17,7 @@ import { runAgentLoop } from "../src/lib/agent-loop.js";
 import type { Turn } from "../src/lib/types.js";
 import { EVAL_CASES, type EvalCase } from "./eval-cases.js";
 
-const CLAUDE_BIN = "/Users/umeshdinkar/.local/bin/claude";
+// Strip ANTHROPIC_API_KEY so the claude binary uses keychain auth instead
 const { ANTHROPIC_API_KEY: _key, ...claudeEnv } = process.env;
 
 const args = process.argv.slice(2);
@@ -76,7 +76,7 @@ or:
 function callJudge(evalCase: EvalCase, actualAnswer: string): Promise<JudgeResult> {
   return new Promise((resolve) => {
     const proc = spawn(
-      CLAUDE_BIN,
+      "claude",
       ["--enable-auto-mode", "--print", "--output-format", "json", "--model", "sonnet"],
       { stdio: ["pipe", "pipe", "pipe"], env: claudeEnv }
     );
@@ -127,7 +127,6 @@ async function runCase(evalCase: EvalCase): Promise<CaseResult> {
     );
     actualAnswer = result.answer;
   } catch (e) {
-    clearTimeout(timer);
     if (controller.signal.aborted) {
       return { id: evalCase.id, verdict: "TIMEOUT", reason: `Exceeded ${TIMEOUT_MS}ms` };
     }
@@ -154,7 +153,7 @@ async function runCase(evalCase: EvalCase): Promise<CaseResult> {
 
 async function main() {
   const cases = FILTER_TAG
-    ? EVAL_CASES.filter((c) => c.tags?.split(",").includes(FILTER_TAG))
+    ? EVAL_CASES.filter((c) => c.tags?.includes(FILTER_TAG))
     : EVAL_CASES;
 
   if (cases.length === 0) {

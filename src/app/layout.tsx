@@ -19,26 +19,13 @@ export const metadata: Metadata = {
   description: "Canadian Flight Supplement British Columbia AI Assistant",
 };
 
-const RootLayout = ({children} : {children: React.ReactNode}) => <html
-      lang="en"
-      className={`${jetbrainsMono.variable} ${barlowCondensed.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
-    </html>
+const RootLayout = ({ children }: { children: React.ReactNode }) => (
+  <html
+    lang="en"
+    className={`${jetbrainsMono.variable} ${barlowCondensed.variable} h-full antialiased`}
+  >
+    <body className="min-h-full flex flex-col">{children}</body>
+  </html>
+);
 
-export default RootLayout
-
-// export default function RootLayout({
-//   children,
-// }: Readonly<{
-//   children: React.ReactNode;
-// }>) {
-//   return (
-//     <html
-//       lang="en"
-//       className={`${jetbrainsMono.variable} ${barlowCondensed.variable} h-full antialiased`}
-//     >
-//       <body className="min-h-full flex flex-col">{children}</body>
-//     </html>
-//   );
-// }
+export default RootLayout;

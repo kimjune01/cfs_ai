@@ -3,7 +3,7 @@ export interface EvalCase {
   question: string;
   expected_behavior: string;
   ground_truth?: string;
-  tags?: string;
+  tags?: string[];
 }
 
 export const EVAL_CASES: EvalCase[] = [
@@ -17,7 +17,7 @@ export const EVAL_CASES: EvalCase[] = [
       "Quoting both frequencies is ideal; quoting only one is acceptable if labeled as tower. " +
       "The answer must not confuse this with any other comm service.",
     ground_truth: "TWR 118.7 (South) 119.55 (North)",
-    tags: "frequency,tower",
+    tags: ["frequency", "tower"],
   },
 
   {
@@ -30,7 +30,7 @@ export const EVAL_CASES: EvalCase[] = [
       "An answer that calls 118.5 the 'tower frequency' is WRONG — that is a label substitution error. " +
       "The answer may mention the RADIO 118.5 PTC service and GND ADV 121.9.",
     ground_truth: "RADIO 118.5 PTC avbl (V); MF rdo 118.5 5NM 4100 ASL — no TWR label present",
-    tags: "regression,mf-vs-tower,frequency",
+    tags: ["regression", "mf-vs-tower", "frequency"],
   },
 
   {
@@ -44,7 +44,7 @@ export const EVAL_CASES: EvalCase[] = [
       "An answer that calls 126.3 only the MF (ignoring the tower) is also incomplete. " +
       "Mentioning ATIS 125.0 or GND 123.8 is a bonus but not required.",
     ground_truth: "TWR Pitt 126.3 (V) 15-07Z; MF tfc 126.3 07-15Z 3NM 2500 ASL",
-    tags: "frequency,tower,mf-vs-tower,hours",
+    tags: ["frequency", "tower", "mf-vs-tower", "hours"],
   },
 
   {
@@ -57,7 +57,7 @@ export const EVAL_CASES: EvalCase[] = [
       "Noting the operating hours and/or the MF conversion is ideal. " +
       "An answer stating only 'MF 119.0' without mentioning tower is wrong for this question.",
     ground_truth: "TWR 119.0 (V) 1630-0230Z; MF tfc 119.0 0230-1630Z 3NM 1900 ASL",
-    tags: "frequency,tower,hours",
+    tags: ["frequency", "tower", "hours"],
   },
 
   {
@@ -69,7 +69,7 @@ export const EVAL_CASES: EvalCase[] = [
       "It may note it is Cardlock (self-serve card system). " +
       "An answer saying fuel is unavailable or 'not published' is WRONG.",
     ground_truth: "FUEL 100LL (Cardlock)",
-    tags: "fuel",
+    tags: ["fuel"],
   },
 
   {
@@ -81,7 +81,7 @@ export const EVAL_CASES: EvalCase[] = [
       "It may mention JA-1 is available with time restrictions. " +
       "An answer saying 100LL IS available at CZMT is WRONG.",
     ground_truth: "FUEL JA-1 only — no 100LL listed at CZMT",
-    tags: "fuel,not-published",
+    tags: ["fuel", "not-published"],
   },
 
   {
@@ -93,7 +93,7 @@ export const EVAL_CASES: EvalCase[] = [
       "The answer must NOT invent or hallucinate a frequency for CYEG. " +
       "Responding with 'not published in this CFS entry' or similar is correct.",
     ground_truth: "CYEG is not covered in this BC CFS dataset",
-    tags: "not-published,hallucination-guard",
+    tags: ["not-published", "hallucination-guard"],
   },
 
   {
@@ -105,6 +105,6 @@ export const EVAL_CASES: EvalCase[] = [
       "It may add that right-hand circuits apply to Runway 34. " +
       "An answer with a different altitude, or no altitude at all, is WRONG.",
     ground_truth: "Circuit hgt 2300 ASL; Rgt hand circuits Rwy 34",
-    tags: "circuit,altitude",
+    tags: ["circuit", "altitude"],
   },
 ];

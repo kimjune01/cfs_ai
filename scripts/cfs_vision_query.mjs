@@ -22,7 +22,7 @@ const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, "..");
 const PDF_PATH = join(projectRoot, "public", "CFS.pdf");
-const CLAUDE_BIN = "/Users/umeshdinkar/.local/bin/claude";
+const CLAUDE_BIN = "claude";
 
 // ─── Parse args ────────────────────────────────────────────────────────────
 
