@@ -1,6 +1,6 @@
 import { spawn } from "child_process";
 import { join } from "path";
-import { attachAbort } from "./processUtils";
+import { attachAbort } from "./utils/processUtils";
 import type { EmitFn, VectorChunk } from "./types";
 
 const CFS_SEARCH = join(process.cwd(), "scripts", "cfs_search.mjs");

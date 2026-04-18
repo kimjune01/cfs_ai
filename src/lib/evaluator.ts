@@ -1,27 +1,12 @@
-import { runClaude, formatHistoryForPrompt } from "./agentTools";
+import { runClaude } from "./utils/claudeUtils";
+import { formatHistoryForPrompt } from "./agentTools";
+import { EVALUATOR_SYSTEM_PROMPT, EVALUATOR_RULES } from "./prompts";
 import type { AgentResult, EmitFn, Turn } from "./types";
 
 type EvaluatorResult =
   | { status: "ready"; icao: string; question: string }
   | { status: "clarify"; questions: string[] }
   | { status: "out_of_scope"; reason: string };
-
-const EVALUATOR_SYSTEM_PROMPT = `You are a question evaluator for the Canadian Flight Supplement (CFS) assistant.
-The CFS contains aerodrome data for British Columbia aerodromes: frequencies, circuit altitudes, fuel types, runway dimensions, lighting, and related services.
-
-Return ONLY a JSON object — no explanation, no markdown.`;
-
-const EVALUATOR_RULES = `Rules:
-- Extract or infer the ICAO code. Canadian airport ICAO codes start with C.
-  Common ones: CYVR=Vancouver, CYYJ=Victoria Intl, CYWH=Victoria Harbour, CYLW=Kelowna, CYXX=Abbotsford, CYCD=Nanaimo, CZBB=Boundary Bay, CYCW=Chilliwack, CYHE=Hope, CZML=Port McNeil.
-- If inference is ambiguous (multiple plausible matches), ask the pilot to pick.
-- If the aerodrome is outside British Columbia, return out_of_scope.
-- This tool only covers CFS aerodrome data. If the question is about weather, NOTAMs, or regulations, return out_of_scope.
-
-Return one of:
-{"status":"ready","icao":"CYYJ","question":"<synthesized self-contained question with ICAO code>"}
-{"status":"clarify","questions":["<specific question 1>","<specific question 2>"]}
-{"status":"out_of_scope","reason":"<one line reason>"}`;
 
 type EvaluationGateResult =
   | { handled: true; result: AgentResult }

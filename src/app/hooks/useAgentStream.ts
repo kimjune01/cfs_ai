@@ -2,33 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { TraceEvent, Turn } from "../../lib/types";
-
-function traceLabel(event: TraceEvent): string {
-  switch (event.type) {
-    case "thinking":
-      return "Thinking…";
-    case "rephrasing":
-      return "Rephrasing query for vector search…";
-    case "clarification":
-      return "Asking for clarification…";
-    case "high_effort":
-      return `High-effort mode — ${event.reason}`;
-    case "vector_search":
-      return `Searching: "${event.query}"…`;
-    case "vector_results":
-      return `Found ${event.count} results (confidence: ${event.topScore})`;
-    case "vision_search":
-      return `Locating pages for ${event.terms.join(", ")}…`;
-    case "vision_render":
-      return `Rendering CFS pages ${event.pages.join(", ")} — almost there…`;
-    case "synthesize":
-      return "Synthesizing answer…";
-    case "done":
-      return "Done";
-    case "error":
-      return `Error: ${event.message}`;
-  }
-}
+import { traceLabel } from "../utils/traceLabels";
 
 export type StreamState = {
   loading: boolean;

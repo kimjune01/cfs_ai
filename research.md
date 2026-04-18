@@ -28,26 +28,30 @@ Pipeline in `src/lib/agentLoop.ts`:
 
 ## Key Files
 
-| File                                   | Role                                                  |
-| -------------------------------------- | ----------------------------------------------------- |
-| `src/lib/agentLoop.ts`                 | Orchestration / decision routing                      |
-| `src/lib/evaluator.ts`                 | ICAO inference, BC scope check, clarification loop    |
-| `src/lib/agentTools.ts`               | PDF utilities + Claude CLI runner                     |
-| `src/lib/vectorSearch.ts`              | LanceDB hybrid search subprocess wrapper              |
-| `src/lib/visionSearch.ts`             | PDF vision pipeline (pdftotext → pdftoppm → Claude)   |
-| `src/lib/processUtils.ts`             | Shared: CLAUDE_BIN, claudeEnv, attachAbort            |
-| `src/lib/types.ts`                     | Turn, TraceEvent, VectorChunk, AgentResult types      |
-| `src/app/api/chat/route.ts`            | POST endpoint, streams NDJSON trace events            |
-| `src/app/page.tsx`                     | Chat UI                                               |
-| `src/app/components/AgentTrace.tsx`    | Collapsible trace panel                               |
-| `src/app/components/PDFPageViewer.tsx` | Canvas PDF renderer                                   |
-| `src/app/hooks/useAgentStream.ts`      | Client-side NDJSON stream consumer                    |
-| `scripts/cfs_search.mjs`               | Vector search CLI (spawned per request)               |
-| `scripts/embed_chunks.mjs`             | One-time: chunks.json → LanceDB index                 |
-| `scripts/parse_cfs.py`                 | One-time: PDF → chunks.json (via docling)             |
-| `data/chunks.json`                     | ~1000 parsed aerodrome entries                        |
-| `data/lancedb/`                        | Vector index                                          |
-| `public/CFS.pdf`                       | Source NavCanada CFS document                         |
+| File                                   | Role                                                                   |
+| -------------------------------------- | ---------------------------------------------------------------------- |
+| `src/lib/agentLoop.ts`                 | Orchestration / decision routing                                       |
+| `src/lib/evaluator.ts`                 | ICAO inference, BC scope check, clarification loop                     |
+| `src/lib/prompts.ts`                   | All Claude system prompts (evaluator, decision, vision)                |
+| `src/lib/agentTools.ts`                | Query logic: ICAO extraction, search term rephrasing, effort detection |
+| `src/lib/vectorSearch.ts`              | LanceDB hybrid search subprocess wrapper                               |
+| `src/lib/visionSearch.ts`              | PDF vision pipeline (pdftotext → pdftoppm → Claude)                    |
+| `src/lib/utils/claudeUtils.ts`         | Claude subprocess wrapper (`runClaude`, `parseJsonStringArray`)        |
+| `src/lib/utils/pdfUtils.ts`            | PDF I/O: text extraction, page clustering, image rendering             |
+| `src/lib/utils/processUtils.ts`        | Shared: CLAUDE_BIN, claudeEnv, attachAbort                             |
+| `src/app/utils/traceLabels.ts`         | `traceLabel` (live status) and `eventLabel` (trace panel)              |
+| `src/lib/types.ts`                     | Turn, TraceEvent, VectorChunk, AgentResult types                       |
+| `src/app/api/chat/route.ts`            | POST endpoint, streams NDJSON trace events                             |
+| `src/app/page.tsx`                     | Chat UI                                                                |
+| `src/app/components/AgentTrace.tsx`    | Collapsible trace panel                                                |
+| `src/app/components/PDFPageViewer.tsx` | Canvas PDF renderer                                                    |
+| `src/app/hooks/useAgentStream.ts`      | Client-side NDJSON stream consumer                                     |
+| `scripts/cfs_search.mjs`               | Vector search CLI (spawned per request)                                |
+| `scripts/embed_chunks.mjs`             | One-time: chunks.json → LanceDB index                                  |
+| `scripts/parse_cfs.py`                 | One-time: PDF → chunks.json (via docling)                              |
+| `data/chunks.json`                     | ~1000 parsed aerodrome entries                                         |
+| `data/lancedb/`                        | Vector index                                                           |
+| `public/CFS.pdf`                       | Source NavCanada CFS document                                          |
 
 ## Notable Patterns
 

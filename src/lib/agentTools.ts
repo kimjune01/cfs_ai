@@ -1,91 +1,6 @@
-import { execFile, spawn } from "child_process";
-import { promisify } from "util";
-import { join } from "path";
-import { mkdtempSync, readFileSync, rmSync } from "fs";
-import { tmpdir } from "os";
-import type { Turn } from "./types";
-import { CLAUDE_BIN, claudeEnv, attachAbort } from "./processUtils";
-
-const execFileAsync = promisify(execFile);
-const PDF_PATH = join(process.cwd(), "public", "CFS.pdf");
-
-// Cache as a promise so concurrent requests share the same in-flight pdftotext call
-let pdfPagesPromise: Promise<string[]> | null = null;
-
-const getPdfPages = (): Promise<string[]> => {
-  if (!pdfPagesPromise) {
-    pdfPagesPromise = execFileAsync("pdftotext", ["-layout", PDF_PATH, "-"], {
-      maxBuffer: 50 * 1024 * 1024,
-    }).then(({ stdout }) => stdout.split("\f"));
-  }
-  return pdfPagesPromise;
-};
-
-const searchPages = (pdfPages: string[], term: string): number[] =>
-  pdfPages
-    .map((text, i) => ({ pageNum: i + 1, text }))
-    .filter(({ text }) => text.includes(term))
-    .map(({ pageNum }) => pageNum);
-
-const largestCluster = (pages: number[]): number[] => {
-  if (pages.length === 0) return [];
-  const clusters: number[][] = [];
-  let current: number[] = [];
-  for (const p of pages) {
-    if (current.length === 0 || p - current[current.length - 1] <= 2) {
-      current.push(p);
-    } else {
-      clusters.push(current);
-      current = [p];
-    }
-  }
-  if (current.length) clusters.push(current);
-  return clusters.sort((a, b) => b.length - a.length)[0];
-};
-
-const renderPages = async (pageNums: number[]): Promise<{ pageNum: number; b64: string }[]> => {
-  const tmpDir = mkdtempSync(join(tmpdir(), "cfs-"));
-  try {
-    return await Promise.all(
-      pageNums.map(async (pageNum) => {
-        const prefix = join(tmpDir, `p${pageNum}`);
-        await execFileAsync("pdftoppm", [
-          "-png",
-          "-r",
-          "100",
-          "-f",
-          String(pageNum),
-          "-l",
-          String(pageNum),
-          PDF_PATH,
-          prefix,
-        ]);
-        const paddedNum = String(pageNum).padStart(3, "0");
-        const b64 = readFileSync(`${prefix}-${paddedNum}.png`).toString("base64");
-        return { pageNum, b64 };
-      }),
-    );
-  } finally {
-    rmSync(tmpDir, { recursive: true, force: true });
-  }
-};
-
-// Parse "Source: CFS page N" or "Source: CFS pages N, M" from Claude output
-const parseSourceCitation = (
-  text: string,
-  fallback: number[],
-): { answer: string; pages: number[] } => {
-  const match = text.match(/\nSource:\s*CFS\s+pages?\s+([\d,\s]+)\s*$/i);
-  return {
-    pages: match
-      ? match[1]
-          .split(",")
-          .map((s) => parseInt(s.trim(), 10))
-          .filter(Boolean)
-      : fallback,
-    answer: match ? text.slice(0, match.index).trim() : text.trim(),
-  };
-};
+import type { Turn, VectorChunk } from "./types";
+import { runClaude, parseJsonStringArray } from "./utils/claudeUtils";
+import { DECISION_PROMPT } from "./prompts";
 
 const VECTOR_CONFIDENCE_THRESHOLD = 0.72;
 const ICAO_RE = /\bC[A-Z]{3}\b/;
@@ -103,43 +18,42 @@ const formatHistoryForPrompt = (history: Turn[]): string => {
   );
 };
 
-const runClaude = (prompt: string, signal?: AbortSignal, systemPrompt?: string): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const args = ["--enable-auto-mode", "--print", "--output-format", "json", "--model", "sonnet"];
-    if (systemPrompt) args.push("--system-prompt", systemPrompt);
-    const proc = spawn(CLAUDE_BIN, args, { stdio: ["pipe", "pipe", "pipe"], env: claudeEnv });
-
-    if (signal) attachAbort(proc, signal);
-
-    let stdout = "";
-    let stderr = "";
-    proc.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
-    proc.stderr.on("data", (d: Buffer) => (stderr += d.toString()));
-    proc.on("close", (code) => {
-      if (signal?.aborted) return reject(new DOMException("Aborted", "AbortError"));
-      try {
-        const parsed = JSON.parse(stdout) as { is_error: boolean; result: string };
-        if (parsed.is_error) return reject(new Error(`Claude: ${parsed.result}`));
-        resolve(parsed.result.trim());
-      } catch {
-        const detail = stderr.slice(0, 200) || stdout.slice(0, 200);
-        reject(new Error(`claude exited ${code}: ${detail}`));
-      }
-    });
-    proc.stdin.write(prompt);
-    proc.stdin.end();
-  });
-
-const parseJsonStringArray = (raw: string): string[] => {
-  try {
-    const jsonStr = raw.match(/\[[\s\S]*\]/)?.[0] ?? raw;
-    return (JSON.parse(jsonStr) as string[])
-      .map((t) => t.replace(/['"`.]/g, "").trim())
-      .filter(Boolean);
-  } catch {
-    return [raw.replace(/['"`.]/g, "").trim()].filter(Boolean);
-  }
+const formatVectorChunks = (chunks: VectorChunk[], topScore: number): string => {
+  const verdict =
+    topScore >= VECTOR_CONFIDENCE_THRESHOLD
+      ? `✓ HIGH CONFIDENCE (${topScore}) — answer directly if results are complete`
+      : `⚠ LOW CONFIDENCE (${topScore}) — consider calling read_pages`;
+  const header = `[Vector search results | top score: ${topScore} | ${verdict}]`;
+  const body = chunks
+    .map(
+      (chunk) =>
+        `[Page ${chunk.page} | ${chunk.icao} | ${chunk.section} | score=${chunk.score}]\n${chunk.text}`,
+    )
+    .join("\n\n---\n\n");
+  return `${header}\n\n${body}`;
 };
+
+const deduplicateChunksByPage = (results: { chunks: VectorChunk[] }[]): VectorChunk[] => {
+  const pageMap = new Map<number, VectorChunk>();
+  for (const result of results) {
+    for (const chunk of result.chunks) {
+      const existing = pageMap.get(chunk.page);
+      if (!existing || chunk.score > existing.score) pageMap.set(chunk.page, chunk);
+    }
+  }
+  return [...pageMap.values()].sort((a, b) => b.score - a.score);
+};
+
+const buildDecisionPrompt = (
+  history: Turn[],
+  question: string,
+  chunks: VectorChunk[],
+  topScore: number,
+): string =>
+  `${formatHistoryForPrompt(history)}` +
+  `Question: ${question}\n\n` +
+  `Vector results:\n${formatVectorChunks(chunks, topScore)}\n\n` +
+  `Answer or call read_pages.`;
 
 // Extract PDF-searchable terms: ICAO codes from question (fast), or Claude-generated (slow)
 const extractSearchTerms = async (question: string, signal?: AbortSignal): Promise<string[]> => {
@@ -203,19 +117,15 @@ const findEffortNeeded = async (
 };
 
 export {
-  PDF_PATH,
-  getPdfPages,
-  searchPages,
-  largestCluster,
-  renderPages,
-  parseSourceCitation,
   VECTOR_CONFIDENCE_THRESHOLD,
+  DECISION_PROMPT,
   ICAO_RE,
   ICAO_RE_GLOBAL,
   extractICAOCodes,
   formatHistoryForPrompt,
-  runClaude,
-  parseJsonStringArray,
+  formatVectorChunks,
+  deduplicateChunksByPage,
+  buildDecisionPrompt,
   extractSearchTerms,
   rephraseMultipleQueries,
   checkICAO,

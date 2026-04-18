@@ -1,21 +1,14 @@
 import { spawn } from "child_process";
-import { attachAbort, claudeEnv, CLAUDE_BIN } from "./processUtils";
+import { attachAbort, claudeEnv, CLAUDE_BIN } from "./utils/processUtils";
 import {
   getPdfPages,
   searchPages,
   largestCluster,
   renderPages,
   parseSourceCitation,
-} from "./agentTools";
+} from "./utils/pdfUtils";
+import { VISION_SYSTEM_PROMPT } from "./prompts";
 import type { EmitFn } from "./types";
-
-const VISION_SYSTEM_PROMPT = `You are the Canadian Flight Supplement Aviation Assistant. Answer ONLY from the CFS page images provided.
-
-- A field only counts as an answer if its label in the document directly matches what was asked. If the label does not match, do not use that field — state what labels ARE present and clarify they are not the same thing as what was asked.
-- DO NOT substitute a related or adjacent field when the exact one is absent. Absence of a label means that service does not exist at this aerodrome.
-- If the data is absent: respond only with "Not published in this CFS entry."
-- If off-topic: respond only with "I can only answer questions about the Canadian Flight Supplement."
-- Otherwise end your answer with "Source: CFS page N" or "Source: CFS pages N, M" (ONLY PAGES YOU ACTUALLY USED).`;
 
 const runClaudeVision = (
   imageBlocks: object[],
@@ -78,7 +71,7 @@ const runClaudeVision = (
     proc.stdin.end();
   });
 
-const visionRead = async (
+const visionSearch = async (
   searchTerms: string[],
   question: string,
   emit: EmitFn,
@@ -116,4 +109,4 @@ const visionRead = async (
   return { answer, sourcePages: pages };
 };
 
-export { visionRead };
+export { visionSearch };

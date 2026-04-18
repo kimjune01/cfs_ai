@@ -1,33 +1,7 @@
 "use client";
 
 import type { TraceEvent } from "../../lib/types";
-
-function eventLabel(event: TraceEvent): string {
-  switch (event.type) {
-    case "thinking":
-      return "Thinking";
-    case "rephrasing":
-      return "Rephrasing query for vector search";
-    case "clarification":
-      return `Query: "${event.question}"`;
-    case "high_effort":
-      return `High-effort mode · ${event.reason}`;
-    case "vector_search":
-      return `VSR "${event.query}"`;
-    case "vector_results":
-      return `${event.count} chunks found · top score ${event.topScore.toFixed(3)}`;
-    case "vision_search":
-      return `VIS ${event.terms.join(", ")}`;
-    case "vision_render":
-      return `RND pages ${event.pages.join(", ")}`;
-    case "synthesize":
-      return "Synthesizing answer";
-    case "done":
-      return `Complete · ${event.sourcePages.length} source page${event.sourcePages.length !== 1 ? "s" : ""}`;
-    case "error":
-      return `ERR: ${event.message}`;
-  }
-}
+import { eventLabel } from "../utils/traceLabels";
 
 type Props = {
   events: TraceEvent[];
