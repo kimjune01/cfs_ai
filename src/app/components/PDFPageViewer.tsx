@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 
 type PDFDocumentProxy = { getPage(n: number): Promise<PDFPageProxy>; destroy(): void };
-type PDFPageProxy = { getViewport(opts: { scale: number }): { width: number; height: number }; render(opts: object): { promise: Promise<void> } };
+type PDFPageProxy = {
+  getViewport(opts: { scale: number }): { width: number; height: number };
+  render(opts: object): { promise: Promise<void> };
+};
 
 // Shared document instance — avoids reloading and reparsing the PDF per component
 let sharedDocPromise: Promise<PDFDocumentProxy> | null = null;
@@ -57,18 +60,21 @@ export default function PDFPageViewer({ pageNumber }: Props) {
       }
     }
 
-    render();
-    return () => { cancelled = true; };
+    void render();
+    return () => {
+      cancelled = true;
+    };
   }, [pageNumber]);
 
-  if (error) return (
-    <p
-      className="text-xs px-4 py-3"
-      style={{ color: "var(--accent-amber)", fontFamily: "inherit" }}
-    >
-      ✗ {error}
-    </p>
-  );
+  if (error)
+    return (
+      <p
+        className="text-xs px-4 py-3"
+        style={{ color: "var(--accent-amber)", fontFamily: "inherit" }}
+      >
+        ✗ {error}
+      </p>
+    );
 
   return (
     <div className="relative" style={{ background: "var(--surface)" }}>
@@ -77,20 +83,13 @@ export default function PDFPageViewer({ pageNumber }: Props) {
           className="flex items-center gap-2 px-4 py-3 text-xs"
           style={{ color: "var(--text-muted)" }}
         >
-          <span
-            className="blink"
-            style={{ color: "var(--accent-cyan)" }}
-          >
+          <span className="blink" style={{ color: "var(--accent-cyan)" }}>
             ▶
           </span>
           Rendering page {pageNumber}…
         </div>
       )}
-      <canvas
-        ref={canvasRef}
-        className="w-full"
-        style={{ display: loading ? "none" : "block" }}
-      />
+      <canvas ref={canvasRef} className="w-full" style={{ display: loading ? "none" : "block" }} />
     </div>
   );
 }

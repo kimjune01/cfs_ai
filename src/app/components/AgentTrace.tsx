@@ -4,17 +4,28 @@ import type { TraceEvent } from "../../lib/types";
 
 function eventLabel(event: TraceEvent): string {
   switch (event.type) {
-    case "thinking":        return "Thinking";
-    case "rephrasing":      return "Rephrasing query for vector search";
-    case "clarification":   return `Query: "${event.question}"`;
-    case "high_effort":     return `High-effort mode · ${event.reason}`;
-    case "vector_search":   return `VSR "${event.query}"`;
-    case "vector_results":  return `${event.count} chunks found · top score ${event.topScore.toFixed(3)}`;
-    case "vision_search":   return `VIS ${event.terms.join(", ")}`;
-    case "vision_render":   return `RND pages ${event.pages.join(", ")}`;
-    case "synthesize":      return "Synthesizing answer";
-    case "done":            return `Complete · ${event.sourcePages.length} source page${event.sourcePages.length !== 1 ? "s" : ""}`;
-    case "error":           return `ERR: ${event.message}`;
+    case "thinking":
+      return "Thinking";
+    case "rephrasing":
+      return "Rephrasing query for vector search";
+    case "clarification":
+      return `Query: "${event.question}"`;
+    case "high_effort":
+      return `High-effort mode · ${event.reason}`;
+    case "vector_search":
+      return `VSR "${event.query}"`;
+    case "vector_results":
+      return `${event.count} chunks found · top score ${event.topScore.toFixed(3)}`;
+    case "vision_search":
+      return `VIS ${event.terms.join(", ")}`;
+    case "vision_render":
+      return `RND pages ${event.pages.join(", ")}`;
+    case "synthesize":
+      return "Synthesizing answer";
+    case "done":
+      return `Complete · ${event.sourcePages.length} source page${event.sourcePages.length !== 1 ? "s" : ""}`;
+    case "error":
+      return `ERR: ${event.message}`;
   }
 }
 
@@ -27,10 +38,7 @@ export default function AgentTrace({ events }: Props) {
   if (visible.length === 0) return null;
 
   return (
-    <details
-      className="group"
-      style={{ fontSize: "11px", marginTop: "4px" }}
-    >
+    <details className="group" style={{ fontSize: "11px", marginTop: "4px" }}>
       <summary
         className="cursor-pointer select-none flex items-center gap-2 list-none py-1"
         style={{ color: "var(--text-dim)" }}
@@ -41,18 +49,12 @@ export default function AgentTrace({ events }: Props) {
         >
           ›
         </span>
-        <span
-          className="tracking-widest uppercase"
-          style={{ letterSpacing: "0.14em" }}
-        >
+        <span className="tracking-widest uppercase" style={{ letterSpacing: "0.14em" }}>
           Trace · {visible.length} step{visible.length !== 1 ? "s" : ""}
         </span>
       </summary>
 
-      <ol
-        className="mt-1.5 space-y-0.5 pl-3"
-        style={{ borderLeft: "1px solid var(--border)" }}
-      >
+      <ol className="mt-1.5 space-y-0.5 pl-3" style={{ borderLeft: "1px solid var(--border)" }}>
         {visible.map((event, i) => (
           <li
             key={i}

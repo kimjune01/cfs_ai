@@ -12,9 +12,16 @@ The app is a hybrid agentic RAG pipeline. Every question is validated, then rout
 User question
       │
       ▼
- Validation
- ├── No ICAO code? ──► ask for it
- └── High-effort?  ──► skip vector, go straight to vision
+ Evaluator (Claude — structured output)
+ ├── No ICAO code?       ──► infer from name, or ask pilot to clarify
+ ├── Ambiguous airport?  ──► ask pilot to pick (e.g. Victoria → CYYJ or CYWH)
+ ├── Outside BC?         ──► out_of_scope
+ ├── Off-topic?          ──► out_of_scope
+ └── Ready?              ──► synthesize clean question with resolved ICAO
+      │
+      ▼
+ High-effort detection (Claude)
+ └── Pilot repeating or doubting? ──► skip vector, go straight to vision
       │
       ▼
  Query rephrasing (Claude)
@@ -39,22 +46,24 @@ User question
  Answer + source pages rendered inline (PDF.js)
 ```
 
+**Evaluator** — the first stage in the pipeline. Resolves or infers the ICAO code, rejects out-of-scope questions (non-BC aerodromes, weather, NOTAMs), and loops with clarifying questions until the request is unambiguous. Hands off a synthesized, self-contained question downstream.
+
 **High-effort mode** — triggered when the pilot repeats a question, expresses doubt, or asks to verify. Skips vector search entirely and reads the PDF directly.
 
 **No API key required** — the app uses Claude Code's existing keychain OAuth session. The Anthropic API key is explicitly stripped from child process environments to prevent it overriding keychain auth. Requires `claude` to be on `PATH`.
 
 ## Tech stack
 
-| Layer | Tool |
-|---|---|
-| Web framework | Next.js 16 (App Router) |
-| UI | React + Tailwind CSS |
-| Embedding model | `Xenova/all-MiniLM-L6-v2` via Transformers.js |
-| Vector database | LanceDB |
-| Language model | Claude Sonnet (via Claude Code CLI — keychain auth) |
-| PDF text search | `pdftotext` (poppler) |
-| PDF rendering — server | `pdftoppm` (poppler) |
-| PDF rendering — client | PDF.js |
+| Layer                  | Tool                                                |
+| ---------------------- | --------------------------------------------------- |
+| Web framework          | Next.js 16 (App Router)                             |
+| UI                     | React + Tailwind CSS                                |
+| Embedding model        | `Xenova/all-MiniLM-L6-v2` via Transformers.js       |
+| Vector database        | LanceDB                                             |
+| Language model         | Claude Sonnet (via Claude Code CLI — keychain auth) |
+| PDF text search        | `pdftotext` (poppler)                               |
+| PDF rendering — server | `pdftoppm` (poppler)                                |
+| PDF rendering — client | PDF.js                                              |
 
 ## Project structure
 
@@ -70,15 +79,19 @@ cfs_ai/
 │   ├── cfs_query.mjs              # Standalone agentic RAG script
 │   ├── cfs_vision_query.mjs       # Standalone vision pipeline script
 │   ├── eval.ts                    # LLM-as-judge eval runner
-│   └── eval-cases.ts              # Golden Q&A test cases
+│   └── evalCases.ts               # Golden Q&A test cases
 ├── data/
 │   ├── chunks.json                # Parsed aerodrome chunks
 │   └── lancedb/                   # Vector index
 └── src/
     ├── lib/
     │   ├── types.ts               # Shared types (Turn, TraceEvent, etc.)
-    │   ├── agent-tools.ts         # Tool implementations + shared utilities
-    │   └── agent-loop.ts          # Agent orchestration
+    │   ├── processUtils.ts        # Shared Claude binary + env helpers
+    │   ├── agentTools.ts          # PDF utilities + Claude runner
+    │   ├── vectorSearch.ts        # LanceDB hybrid search
+    │   ├── visionSearch.ts        # PDF vision pipeline
+    │   ├── evaluator.ts           # Question evaluator (ICAO inference, scope check)
+    │   └── agentLoop.ts           # Agent orchestration
     └── app/
         ├── api/chat/route.ts      # Streaming NDJSON endpoint
         ├── hooks/
@@ -92,21 +105,25 @@ cfs_ai/
 ## Setup
 
 1. Install dependencies:
+
    ```bash
    npm install
    ```
 
 2. Log in to Claude Code (required — the app uses keychain auth, not an API key):
+
    ```bash
    claude login
    ```
 
 3. Install poppler (required for `pdftotext` and `pdftoppm`):
+
    ```bash
    brew install poppler
    ```
 
 4. If regenerating the vector index from a new CFS PDF, run the offline scripts once:
+
    ```bash
    python scripts/parse_cfs.py
    node scripts/embed_chunks.mjs
@@ -121,7 +138,7 @@ The app will be available at `http://localhost:3000`.
 
 ## Evals
 
-The eval suite runs 8 golden Q&A cases through the full agent pipeline and uses Claude as a judge to verify answer quality. Cases cover tower vs. MF frequency labeling, fuel availability, circuit altitudes, and hallucination guards.
+The eval suite runs 13 golden Q&A cases through the full agent pipeline and uses Claude as a judge to verify answer quality. Cases cover tower vs. MF frequency labeling, fuel availability, circuit altitudes, hallucination guards, and evaluator behaviour (ICAO inference, ambiguous names, out-of-scope requests).
 
 ```bash
 npm run eval                          # run all cases

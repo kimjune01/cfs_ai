@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { runAgentLoop } from "../../../lib/agent-loop";
+import { runAgentLoop } from "../../../lib/agentLoop";
 import type { TraceEvent, Turn } from "../../../lib/types";
 
 export async function POST(request: NextRequest) {
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
 
   const raw = body as Record<string, unknown>;
   const question = typeof raw?.question === "string" ? raw.question.trim() : "";
-  const history: Turn[] = Array.isArray(raw?.history) ? raw.history as Turn[] : [];
+  const history: Turn[] = Array.isArray(raw?.history) ? (raw.history as Turn[]) : [];
 
   if (!question) {
     return Response.json({ error: "Question is required." }, { status: 400 });

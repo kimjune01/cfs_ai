@@ -32,7 +32,7 @@ export default function Home() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const { state, send, abort } = useAgentStream();
 
-  useEffect(() => () => abort(), []);
+  useEffect(() => () => abort(), [abort]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -52,23 +52,22 @@ export default function Home() {
     ]);
 
     setHistory((prev) =>
-      ([
+      [
         ...prev,
         { role: "user" as const, content: question },
         { role: "assistant" as const, content: answer, pagesFound: sourcePages },
-      ]).slice(-20)
+      ].slice(-20),
     );
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || state.loading) return;
-    submitQuestion(input.trim());
-  }
+    void submitQuestion(input.trim());
+  };
 
   return (
     <main className="flex flex-col h-screen relative">
-
       {/* ── Header ── */}
       <header
         className="flex-none relative z-10"
@@ -114,7 +113,6 @@ export default function Home() {
       {/* ── Messages ── */}
       <div className="flex-1 overflow-y-auto relative z-10">
         <div className="max-w-3xl mx-auto px-5 py-8 space-y-7">
-
           {/* Empty state */}
           {messages.length === 0 && !state.loading && (
             <div className="mt-10 space-y-8">
@@ -132,7 +130,7 @@ export default function Home() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {SAMPLE_QUERIES.map((q) => (
-                  <SampleQuery key={q} text={q} onSelect={submitQuestion} />
+                  <SampleQuery key={q} text={q} onSelect={(query) => void submitQuestion(query)} />
                 ))}
               </div>
             </div>
@@ -215,6 +213,7 @@ export default function Home() {
                 onBlur={() => setInputFocused(false)}
                 placeholder="Ask about a Canadian aerodrome…"
                 disabled={state.loading}
+                // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
                 className="w-full py-2.5 text-sm focus:outline-none"
                 style={{
@@ -339,10 +338,7 @@ function AssistantMessage({ content }: { content: string }) {
 
 function SourcePages({ pages }: { pages: number[] }) {
   return (
-    <div
-      className="rounded overflow-hidden"
-      style={{ border: "1px solid var(--border)" }}
-    >
+    <div className="rounded overflow-hidden" style={{ border: "1px solid var(--border)" }}>
       <div
         className="px-4 py-2 flex items-center gap-2.5"
         style={{
@@ -355,15 +351,11 @@ function SourcePages({ pages }: { pages: number[] }) {
           className="text-xs tracking-widest uppercase"
           style={{ color: "var(--text-muted)", letterSpacing: "0.12em" }}
         >
-          Source · CFS{" "}
-          {pages.length === 1 ? `pg ${pages[0]}` : `pg ${pages.join(", ")}`}
+          Source · CFS {pages.length === 1 ? `pg ${pages[0]}` : `pg ${pages.join(", ")}`}
         </span>
       </div>
       {pages.map((page, i) => (
-        <div
-          key={page}
-          style={i > 0 ? { borderTop: "1px solid var(--border)" } : {}}
-        >
+        <div key={page} style={i > 0 ? { borderTop: "1px solid var(--border)" } : {}}>
           <PDFPageViewer pageNumber={page} />
         </div>
       ))}
@@ -371,13 +363,7 @@ function SourcePages({ pages }: { pages: number[] }) {
   );
 }
 
-function SampleQuery({
-  text,
-  onSelect,
-}: {
-  text: string;
-  onSelect: (q: string) => void;
-}) {
+function SampleQuery({ text, onSelect }: { text: string; onSelect: (q: string) => void }) {
   const [hovered, setHovered] = useState(false);
   return (
     <button

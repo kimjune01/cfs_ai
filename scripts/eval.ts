@@ -13,17 +13,15 @@
  */
 
 import { spawn } from "child_process";
-import { runAgentLoop } from "../src/lib/agent-loop.js";
+import { runAgentLoop } from "../src/lib/agentLoop.js";
 import type { Turn } from "../src/lib/types.js";
-import { EVAL_CASES, type EvalCase } from "./eval-cases.js";
+import { EVAL_CASES, type EvalCase } from "./evalCases.js";
 
 // Strip ANTHROPIC_API_KEY so the claude binary uses keychain auth instead
 const { ANTHROPIC_API_KEY: _key, ...claudeEnv } = process.env;
 
 const args = process.argv.slice(2);
-const TIMEOUT_MS = parseInt(
-  args.find((a) => a.startsWith("--timeout="))?.split("=")[1] ?? "90000"
-);
+const TIMEOUT_MS = parseInt(args.find((a) => a.startsWith("--timeout="))?.split("=")[1] ?? "90000");
 const FILTER_TAG = args.find((a) => a.startsWith("--filter="))?.split("=")[1];
 
 // ─── Judge ───────────────────────────────────────────────────────────────────
@@ -78,15 +76,15 @@ function callJudge(evalCase: EvalCase, actualAnswer: string): Promise<JudgeResul
     const proc = spawn(
       "claude",
       ["--enable-auto-mode", "--print", "--output-format", "json", "--model", "sonnet"],
-      { stdio: ["pipe", "pipe", "pipe"], env: claudeEnv }
+      { stdio: ["pipe", "pipe", "pipe"], env: claudeEnv },
     );
 
     let stdout = "";
-    proc.stdout.on("data", (d: Buffer) => (stdout += d));
+    proc.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
     proc.on("close", () => {
       try {
-        const outer = JSON.parse(stdout);
-        const jsonStr = (outer.result as string).match(/\{[\s\S]*\}/)?.[0];
+        const outer = JSON.parse(stdout) as { result: string };
+        const jsonStr = outer.result.match(/\{[\s\S]*\}/)?.[0];
         if (!jsonStr) throw new Error("no JSON in judge output");
         resolve(JSON.parse(jsonStr) as JudgeResult);
       } catch {
@@ -119,12 +117,7 @@ async function runCase(evalCase: EvalCase): Promise<CaseResult> {
 
   let actualAnswer = "";
   try {
-    const result = await runAgentLoop(
-      evalCase.question,
-      [] as Turn[],
-      () => {},
-      controller.signal
-    );
+    const result = await runAgentLoop(evalCase.question, [] as Turn[], () => {}, controller.signal);
     actualAnswer = result.answer;
   } catch (e) {
     if (controller.signal.aborted) {
@@ -152,16 +145,16 @@ async function runCase(evalCase: EvalCase): Promise<CaseResult> {
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const cases = FILTER_TAG
-    ? EVAL_CASES.filter((c) => c.tags?.includes(FILTER_TAG))
-    : EVAL_CASES;
+  const cases = FILTER_TAG ? EVAL_CASES.filter((c) => c.tags?.includes(FILTER_TAG)) : EVAL_CASES;
 
   if (cases.length === 0) {
     console.error(`No cases match filter: ${FILTER_TAG}`);
     process.exit(1);
   }
 
-  console.log(`\nCFS/AI Eval — ${cases.length} case${cases.length > 1 ? "s" : ""}${FILTER_TAG ? ` [filter: ${FILTER_TAG}]` : ""}\n`);
+  console.log(
+    `\nCFS/AI Eval — ${cases.length} case${cases.length > 1 ? "s" : ""}${FILTER_TAG ? ` [filter: ${FILTER_TAG}]` : ""}\n`,
+  );
 
   const results: CaseResult[] = [];
   for (const evalCase of cases) {
@@ -175,7 +168,8 @@ async function main() {
     if (result.verdict !== "PASS") {
       console.log(`    reason:  ${result.reason}`);
       if (result.fatal_error) console.log(`    fatal:   ${result.fatal_error}`);
-      if (result.actual) console.log(`    actual:  ${result.actual.slice(0, 200).replace(/\n/g, " ")}`);
+      if (result.actual)
+        console.log(`    actual:  ${result.actual.slice(0, 200).replace(/\n/g, " ")}`);
     }
   }
 

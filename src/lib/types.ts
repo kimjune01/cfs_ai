@@ -1,11 +1,12 @@
-export type Turn = {
+type Turn = {
   role: "user" | "assistant";
   content: string;
   pagesFound?: number[];
 };
 
-export type TraceEvent =
+type TraceEvent =
   | { type: "thinking" }
+  | { type: "evaluating" }
   | { type: "rephrasing" }
   | { type: "clarification"; question: string }
   | { type: "high_effort"; reason: string }
@@ -17,9 +18,9 @@ export type TraceEvent =
   | { type: "done"; answer: string; sourcePages: number[] }
   | { type: "error"; message: string };
 
-export type EmitFn = (event: TraceEvent) => void;
+type EmitFn = (event: TraceEvent) => void;
 
-export type VectorChunk = {
+type VectorChunk = {
   page: number;
   icao: string;
   section: string;
@@ -27,9 +28,11 @@ export type VectorChunk = {
   score: number;
 };
 
-export type AgentResult = {
+type AgentResult = {
   answer: string;
   sourcePages: number[];
   searchTerms: string[];
   toolsCalled: ("vector" | "vision")[];
 };
+
+export type { Turn, TraceEvent, EmitFn, VectorChunk, AgentResult };

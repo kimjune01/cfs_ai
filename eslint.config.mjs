@@ -1,0 +1,54 @@
+import tsPlugin from "@typescript-eslint/eslint-plugin";
+import tsParser from "@typescript-eslint/parser";
+import reactPlugin from "eslint-plugin-react";
+import reactHooks from "eslint-plugin-react-hooks";
+import jsxA11y from "eslint-plugin-jsx-a11y";
+import prettier from "eslint-config-prettier";
+import { dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+export default [
+  // TypeScript — type-checked rules for all TS/TSX files
+  {
+    files: ["src/**/*.ts", "src/**/*.tsx", "scripts/**/*.ts"],
+    plugins: { "@typescript-eslint": tsPlugin },
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        project: true,
+        tsconfigRootDir: __dirname,
+      },
+    },
+    rules: {
+      ...tsPlugin.configs["recommended-type-checked"].rules,
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+  },
+
+  // React — JSX best practices, hooks, accessibility
+  {
+    files: ["src/**/*.tsx"],
+    plugins: {
+      react: reactPlugin,
+      "react-hooks": reactHooks,
+      "jsx-a11y": jsxA11y,
+    },
+    settings: {
+      react: { version: "detect" },
+    },
+    rules: {
+      ...reactPlugin.configs.recommended.rules,
+      ...reactPlugin.configs["jsx-runtime"].rules,
+      ...reactHooks.configs.recommended.rules,
+      ...jsxA11y.flatConfigs.recommended.rules,
+    },
+  },
+
+  // Prettier — must be last to override conflicting formatting rules
+  prettier,
+];

@@ -107,4 +107,62 @@ export const EVAL_CASES: EvalCase[] = [
     ground_truth: "Circuit hgt 2300 ASL; Rgt hand circuits Rwy 34",
     tags: ["circuit", "altitude"],
   },
+
+  // ─── Evaluator cases ────────────────────────────────────────────────────────
+
+  {
+    id: "evaluator-no-icao",
+    question: "What is the tower frequency?",
+    expected_behavior:
+      "The question has no ICAO code and no aerodrome name. " +
+      "The evaluator must ask the pilot to provide the aerodrome's 4-letter ICAO code. " +
+      "The response must NOT attempt to answer a tower frequency question. " +
+      "The response must NOT invent or guess an aerodrome.",
+    tags: ["evaluator", "clarify"],
+  },
+
+  {
+    id: "evaluator-ambiguous-victoria",
+    question: "What is the circuit altitude at Victoria?",
+    expected_behavior:
+      "Victoria is ambiguous — it could refer to CYYJ (Victoria International) or CYWH (Victoria Harbour). " +
+      "The evaluator must ask the pilot to clarify which Victoria airport they mean. " +
+      "The response must mention both CYYJ and CYWH (or equivalent names). " +
+      "The response must NOT answer with a circuit altitude — that would be guessing.",
+    tags: ["evaluator", "clarify"],
+  },
+
+  {
+    id: "evaluator-out-of-scope-non-bc",
+    question: "What is the tower frequency at CYYC?",
+    expected_behavior:
+      "CYYC (Calgary International) is in Alberta, not British Columbia. " +
+      "The evaluator must state that this assistant only covers British Columbia aerodromes. " +
+      "The response must NOT provide any frequency information for CYYC. " +
+      "The response must NOT say the data is 'not published' — the correct reason is geographic scope.",
+    tags: ["evaluator", "out_of_scope"],
+  },
+
+  {
+    id: "evaluator-out-of-scope-weather",
+    question: "What is the weather at CYVR right now?",
+    expected_behavior:
+      "Weather is not covered by the Canadian Flight Supplement. " +
+      "The evaluator must state that this tool only covers CFS aerodrome data and cannot answer weather questions. " +
+      "The response must NOT provide any weather information. " +
+      "The response must NOT attempt to look up METAR, TAF, or current conditions.",
+    tags: ["evaluator", "out_of_scope"],
+  },
+
+  {
+    id: "evaluator-infer-vancouver",
+    question: "What is the tower frequency at Vancouver airport?",
+    expected_behavior:
+      "The evaluator must infer CYVR from 'Vancouver airport' without asking for clarification — this is unambiguous. " +
+      "The pipeline must then answer with the CYVR tower frequencies: 118.7 (South) and 119.55 (North). " +
+      "An answer that asks for the ICAO code is WRONG — the inference should be automatic. " +
+      "An answer with incorrect frequencies or labeling the frequency as MF is also WRONG.",
+    ground_truth: "TWR 118.7 (South) 119.55 (North)",
+    tags: ["evaluator", "inference", "frequency", "tower"],
+  },
 ];
