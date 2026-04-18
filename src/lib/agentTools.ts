@@ -1,10 +1,10 @@
 import type { Turn, VectorChunk } from "./types";
 import { runClaude, parseJsonStringArray } from "./utils/claudeUtils";
-import { DECISION_PROMPT } from "./prompts";
+import { parseJsonObject } from "./utils/parseJson";
 
 const VECTOR_CONFIDENCE_THRESHOLD = 0.72;
 const ICAO_RE = /\bC[A-Z]{3}\b/;
-const ICAO_RE_GLOBAL = new RegExp(ICAO_RE.source, "g");
+const ICAO_RE_GLOBAL = /\bC[A-Z]{3}\b/g;
 
 const extractICAOCodes = (question: string): string[] =>
   [...question.toUpperCase().matchAll(ICAO_RE_GLOBAL)].map((m) => m[0]);
@@ -108,9 +108,8 @@ const findEffortNeeded = async (
 
   try {
     const raw = await runClaude(prompt, signal);
-    const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] ?? raw;
-    const parsed = JSON.parse(jsonStr) as { high_effort: boolean };
-    return parsed.high_effort ?? false;
+    const parsed = parseJsonObject<{ high_effort: boolean }>(raw);
+    return parsed?.high_effort ?? false;
   } catch {
     return false;
   }
@@ -118,7 +117,6 @@ const findEffortNeeded = async (
 
 export {
   VECTOR_CONFIDENCE_THRESHOLD,
-  DECISION_PROMPT,
   ICAO_RE,
   ICAO_RE_GLOBAL,
   extractICAOCodes,

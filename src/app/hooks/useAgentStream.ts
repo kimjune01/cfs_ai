@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback } from "react";
 import type { TraceEvent, Turn } from "../../lib/types";
 import { traceLabel } from "../utils/traceLabels";
 
@@ -75,9 +75,9 @@ export function useAgentStream() {
     return { answer, sourcePages, traceEvents };
   }
 
-  function abort() {
+  const abort = useCallback(() => {
     abortRef.current?.abort();
-  }
+  }, []);
 
   return { state, send, abort };
 }

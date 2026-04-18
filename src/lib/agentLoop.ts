@@ -1,4 +1,5 @@
 import { runClaude } from "./utils/claudeUtils";
+import { parseJsonObject } from "./utils/parseJson";
 import {
   extractSearchTerms,
   extractICAOCodes,
@@ -6,8 +7,8 @@ import {
   findEffortNeeded,
   deduplicateChunksByPage,
   buildDecisionPrompt,
-  DECISION_PROMPT,
 } from "./agentTools";
+import { DECISION_PROMPT } from "./prompts";
 import { vectorSearch } from "./vectorSearch";
 import { visionSearch } from "./visionSearch";
 import { runEvaluationGate } from "./evaluator";
@@ -21,13 +22,12 @@ type Decision = { action: string; text?: string; pages?: number[] };
 const truncateHistory = (history: Turn[]): Turn[] => history.slice(-MAX_HISTORY_TURNS);
 
 const parseDecision = (raw: string): Decision => {
-  try {
-    const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] ?? raw;
-    return JSON.parse(jsonStr) as Decision;
-  } catch {
+  const decision = parseJsonObject<Decision>(raw);
+  if (!decision) {
     console.warn("Decision parse failed, escalating to vision:", raw.slice(0, 200));
     return { action: "vision" };
   }
+  return decision;
 };
 
 const runVisionDirectPath = async (
@@ -91,13 +91,12 @@ const runVectorPath = async (
   }
 
   // Vector results insufficient — escalate to vision
-  const visionTerms = await extractSearchTerms(question, signal);
-  const visionResult = await visionSearch(visionTerms, question, emit, signal);
+  const visionResult = await visionSearch(icaos, question, emit, signal);
   emit({ type: "synthesize" });
   return {
     answer: visionResult.answer,
     sourcePages: visionResult.sourcePages,
-    searchTerms: [...queries, ...visionTerms],
+    searchTerms: [...queries, ...icaos],
     toolsCalled: ["vector", "vision"],
   };
 };

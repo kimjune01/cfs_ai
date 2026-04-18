@@ -1,4 +1,5 @@
 import { runClaude } from "./utils/claudeUtils";
+import { parseJsonObject } from "./utils/parseJson";
 import { formatHistoryForPrompt } from "./agentTools";
 import { EVALUATOR_SYSTEM_PROMPT, EVALUATOR_RULES } from "./prompts";
 import type { AgentResult, EmitFn, Turn } from "./types";
@@ -25,12 +26,11 @@ const evaluate = async (
 
   try {
     const raw = await runClaude(prompt, signal, EVALUATOR_SYSTEM_PROMPT);
-    const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] ?? raw;
-    const parsed = JSON.parse(jsonStr) as EvaluatorResult;
+    const parsed = parseJsonObject<EvaluatorResult>(raw);
     if (
-      parsed.status === "ready" ||
-      parsed.status === "clarify" ||
-      parsed.status === "out_of_scope"
+      parsed?.status === "ready" ||
+      parsed?.status === "clarify" ||
+      parsed?.status === "out_of_scope"
     ) {
       return parsed;
     }
