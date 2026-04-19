@@ -66,26 +66,13 @@ const PDFPageViewer = ({ pageNumber }: Props) => {
     };
   }, [pageNumber]);
 
-  if (error)
-    return (
-      <p
-        className="text-xs px-4 py-3"
-        style={{ color: "var(--accent-amber)", fontFamily: "inherit" }}
-      >
-        ✗ {error}
-      </p>
-    );
+  if (error) return <p className="pdf-error text-xs px-4 py-3">✗ {error}</p>;
 
   return (
-    <div className="relative" style={{ background: "var(--surface)" }}>
+    <div className="pdf-container relative">
       {loading && (
-        <div
-          className="flex items-center gap-2 px-4 py-3 text-xs"
-          style={{ color: "var(--text-muted)" }}
-        >
-          <span className="blink" style={{ color: "var(--accent-cyan)" }}>
-            ▶
-          </span>
+        <div className="pdf-loading flex items-center gap-2 px-4 py-3 text-xs">
+          <span className="pdf-loading-arrow blink">▶</span>
           Rendering page {pageNumber}…
         </div>
       )}
