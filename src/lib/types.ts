@@ -5,7 +5,6 @@ type Turn = {
 };
 
 type TraceEvent =
-  | { type: "thinking" }
   | { type: "evaluating" }
   | { type: "rephrasing" }
   | { type: "clarification"; question: string }

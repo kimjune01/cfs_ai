@@ -5,8 +5,6 @@ import type { TraceEvent } from "../../lib/types";
 // Live status strings — shown inline while the request is in flight
 const traceLabel = (event: TraceEvent): string => {
   switch (event.type) {
-    case "thinking":
-      return "Thinking…";
     case "evaluating":
       return "Evaluating question…";
     case "rephrasing":
@@ -37,8 +35,6 @@ const traceLabel = (event: TraceEvent): string => {
 // Compact log strings — shown in the collapsible trace panel
 const eventLabel = (event: TraceEvent): string => {
   switch (event.type) {
-    case "thinking":
-      return "Thinking";
     case "evaluating":
       return "Evaluating question";
     case "rephrasing":

@@ -55,9 +55,8 @@ const runDecision = async (
   emit: EmitFn,
   signal?: AbortSignal,
 ): Promise<Decision> => {
-  const topScore = chunks[0]?.score ?? 0;
   const raw = await runClaude(
-    buildDecisionPrompt(history, question, chunks, topScore),
+    buildDecisionPrompt(history, question, chunks),
     signal,
     DECISION_PROMPT,
   );
@@ -85,7 +84,6 @@ const runAgentLoop = async (
   signal?: AbortSignal,
 ): Promise<AgentResult> => {
   const truncated = truncateHistory(history);
-  emit({ type: "thinking" });
 
   const gate = await runEvaluationGate(question, truncated, emit, signal);
   if (gate.handled) return gate.result;
