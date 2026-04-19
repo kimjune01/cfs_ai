@@ -10,10 +10,7 @@ const LANCEDB_PATH = join(__dirname, "../data/lancedb");
 
 async function main() {
   console.error("Loading embedding model (downloads ~22MB on first run)...");
-  const embedder = await pipeline(
-    "feature-extraction",
-    "Xenova/all-MiniLM-L6-v2"
-  );
+  const embedder = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
 
   const chunks = JSON.parse(readFileSync(CHUNKS_PATH, "utf-8"));
   console.error(`Embedding ${chunks.length} chunks...`);

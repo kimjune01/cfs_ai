@@ -20,10 +20,6 @@ User question
  └── Ready?              ──► synthesize clean question with resolved ICAO
       │
       ▼
- High-effort detection (Claude)
- └── Pilot repeating or doubting? ──► skip vector, go straight to vision
-      │
-      ▼
  Query rephrasing (Claude)
  └── Rewrites the question into a precise vector search query
       │
@@ -34,7 +30,8 @@ User question
       ▼
  Decision (Claude)
  ├── Results explicitly answer the question? ──► answer from chunks
- └── Results insufficient or ambiguous?      ──► escalate to vision
+ ├── Results insufficient or ambiguous?      ──► escalate to vision
+ └── Pilot repeating or doubting?            ──► escalate to vision
       │
       ▼ (when needed)
  Vision pipeline
@@ -48,7 +45,7 @@ User question
 
 **Evaluator** — the first stage in the pipeline. Resolves or infers the ICAO code, rejects out-of-scope questions (non-BC aerodromes, weather, NOTAMs), and loops with clarifying questions until the request is unambiguous. Hands off a synthesized, self-contained question downstream.
 
-**High-effort mode** — triggered when the pilot repeats a question, expresses doubt, or asks to verify. Skips vector search entirely and reads the PDF directly.
+**Decision** — runs after vector search with the retrieved chunks and conversation history. Answers directly if results are sufficient, or escalates to vision if confidence is low, the field label doesn't match, or the pilot is repeating/doubting a previous answer.
 
 **No API key required** — the app uses Claude Code's existing keychain OAuth session. The Anthropic API key is explicitly stripped from child process environments to prevent it overriding keychain auth. Requires `claude` to be on `PATH`.
 
@@ -152,5 +149,5 @@ Exit code 0 = all pass, 1 = any failures.
 
 - **Include the ICAO code** in every question (e.g. `CYVR`, `CYXX`, `CYHE`). The app will ask if you forget.
 - **Ask specific questions** — circuit altitude, tower frequency, fuel types, runway dimensions, lighting.
-- **Say "verify that" or "are you sure"** to trigger high-effort mode, which reads the actual PDF page directly instead of querying the vector index.
+- **Say "verify that" or "are you sure"** — the decision step detects doubt or repetition and escalates directly to vision, reading the actual PDF page for ground truth.
 - The agent trace (collapsed below each answer) shows exactly which tools ran and what confidence scores were returned.

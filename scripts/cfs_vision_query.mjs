@@ -29,7 +29,7 @@ const CLAUDE_BIN = "claude";
 const question = process.argv.slice(2).join(" ").trim();
 
 if (!question) {
-  console.error("Usage: node scripts/cfs_vision_query.mjs \"<question>\"");
+  console.error('Usage: node scripts/cfs_vision_query.mjs "<question>"');
   process.exit(1);
 }
 
@@ -41,7 +41,7 @@ const searchTerm = await new Promise((resolve, reject) => {
   const proc = spawn(
     CLAUDE_BIN,
     ["--enable-auto-mode", "--print", "--output-format", "json", "--model", "sonnet"],
-    { cwd: projectRoot, stdio: ["pipe", "pipe", "pipe"] }
+    { cwd: projectRoot, stdio: ["pipe", "pipe", "pipe"] },
   );
   let stdout = "";
   proc.stdout.on("data", (d) => (stdout += d));
@@ -56,20 +56,18 @@ const searchTerm = await new Promise((resolve, reject) => {
   });
   proc.stdin.write(
     `You are a Canadian aviation assistant. Given a question about a Canadian aerodrome, ` +
-    `return ONLY the best search term to use in the Canadian Flight Supplement PDF — ` +
-    `typically a 4-letter ICAO code (e.g. CYXX) or an aerodrome name as it appears in the CFS. ` +
-    `No explanation, no punctuation, just the search term.\n\nQuestion: ${question}`
+      `return ONLY the best search term to use in the Canadian Flight Supplement PDF — ` +
+      `typically a 4-letter ICAO code (e.g. CYXX) or an aerodrome name as it appears in the CFS. ` +
+      `No explanation, no punctuation, just the search term.\n\nQuestion: ${question}`,
   );
   proc.stdin.end();
 });
 
 console.error(`Searching PDF for "${searchTerm}"...`);
 
-const { stdout: pdfText } = await execFileAsync(
-  "pdftotext",
-  ["-layout", PDF_PATH, "-"],
-  { maxBuffer: 50 * 1024 * 1024 }
-);
+const { stdout: pdfText } = await execFileAsync("pdftotext", ["-layout", PDF_PATH, "-"], {
+  maxBuffer: 50 * 1024 * 1024,
+});
 
 const pages = pdfText.split("\f");
 const matchingPages = pages
@@ -97,7 +95,9 @@ if (current.length) clusters.push(current);
 clusters.sort((a, b) => b.length - a.length);
 const entryPages = clusters[0] ?? [];
 
-console.error(`Found on pages: ${matchingPages.slice(0, 10).join(", ")}${matchingPages.length > 10 ? "…" : ""}`);
+console.error(
+  `Found on pages: ${matchingPages.slice(0, 10).join(", ")}${matchingPages.length > 10 ? "…" : ""}`,
+);
 console.error(`Using pages: ${entryPages.join(", ")}`);
 
 // ─── Step 2: Render pages to PNG with pdftoppm ─────────────────────────────
@@ -110,9 +110,15 @@ try {
   for (const pageNum of entryPages) {
     const outPrefix = join(tmpDir, `page-${pageNum}`);
     await execFileAsync("pdftoppm", [
-      "-png", "-r", "100",
-      "-f", String(pageNum), "-l", String(pageNum),
-      PDF_PATH, outPrefix,
+      "-png",
+      "-r",
+      "100",
+      "-f",
+      String(pageNum),
+      "-l",
+      String(pageNum),
+      PDF_PATH,
+      outPrefix,
     ]);
 
     const paddedNum = String(pageNum).padStart(3, "0");
@@ -136,13 +142,14 @@ try {
     "Answer based solely on what you can read in the images. Be concise and precise. " +
     "Always end your answer with 'Source: CFS page N' citing the exact page number where you found the information.";
 
-  const inputJson = JSON.stringify({
-    type: "user",
-    message: {
-      role: "user",
-      content: [...imageBlocks, { type: "text", text: question }],
-    },
-  }) + "\n";
+  const inputJson =
+    JSON.stringify({
+      type: "user",
+      message: {
+        role: "user",
+        content: [...imageBlocks, { type: "text", text: question }],
+      },
+    }) + "\n";
 
   const answer = await new Promise((resolve, reject) => {
     const proc = spawn(
@@ -151,12 +158,16 @@ try {
         "--enable-auto-mode",
         "--print",
         "--verbose",
-        "--input-format", "stream-json",
-        "--output-format", "stream-json",
-        "--model", "sonnet",
-        "--system-prompt", systemPrompt,
+        "--input-format",
+        "stream-json",
+        "--output-format",
+        "stream-json",
+        "--model",
+        "sonnet",
+        "--system-prompt",
+        systemPrompt,
       ],
-      { cwd: projectRoot, stdio: ["pipe", "pipe", "pipe"] }
+      { cwd: projectRoot, stdio: ["pipe", "pipe", "pipe"] },
     );
 
     let stdout = "";
@@ -166,7 +177,13 @@ try {
       const result = stdout
         .split("\n")
         .filter(Boolean)
-        .map((line) => { try { return JSON.parse(line); } catch { return null; } })
+        .map((line) => {
+          try {
+            return JSON.parse(line);
+          } catch {
+            return null;
+          }
+        })
         .filter(Boolean)
         .find((obj) => obj.type === "result" && obj.subtype === "success");
 
@@ -179,7 +196,6 @@ try {
   });
 
   console.log("\n" + answer);
-
 } finally {
   rmSync(tmpDir, { recursive: true, force: true });
 }

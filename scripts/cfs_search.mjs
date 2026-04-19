@@ -15,7 +15,19 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const LANCEDB_PATH = join(__dirname, "../data/lancedb");
 
 const COMMON_WORDS = new Set([
-  "THE", "AND", "FOR", "CFS", "AT", "IN", "OF", "IS", "TO", "A", "BC", "VFR", "IFR",
+  "THE",
+  "AND",
+  "FOR",
+  "CFS",
+  "AT",
+  "IN",
+  "OF",
+  "IS",
+  "TO",
+  "A",
+  "BC",
+  "VFR",
+  "IFR",
 ]);
 
 function extractIcaoCodes(q) {
@@ -53,7 +65,10 @@ async function search(query, k = 5) {
 
   const needsScan = icaoCodes.length > 0 || abbrevs.length > 0;
   const allRows = needsScan
-    ? await table.query().select(["id", "icao", "section_group", "start_page", "end_page", "text"]).toArray()
+    ? await table
+        .query()
+        .select(["id", "icao", "section_group", "start_page", "end_page", "text"])
+        .toArray()
     : [];
 
   const icaoChunks = icaoCodes.length ? allRows.filter((c) => icaoCodes.includes(c.icao)) : [];
@@ -79,7 +94,7 @@ const query = args[0];
 const k = parseInt(args[1] ?? "5", 10);
 
 if (!query) {
-  console.error("Usage: node scripts/cfs_search.mjs \"<query>\" [k] [--json]");
+  console.error('Usage: node scripts/cfs_search.mjs "<query>" [k] [--json]');
   process.exit(1);
 }
 
@@ -104,7 +119,7 @@ try {
       console.log(
         chunks
           .map((c) => `[CFS Page ${c.start_page} | ${c.icao} | ${c.section_group}]\n${c.text}`)
-          .join("\n\n---\n\n")
+          .join("\n\n---\n\n"),
       );
     }
   }

@@ -1,17 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #F0F3F7;
-  --surface: #FFFFFF;
-  --surface-2: #E8ECF2;
-  --border: #D0D8E4;
-  --border-mid: #B8C4D4;
-  --accent-cyan: #0076A8;
-  --accent-amber: #B87200;
-  --accent-green: #007A47;
-  --text-primary: #111B28;
-  --text-muted: #4A6070;
-  --text-dim: #8A9DB0;
+  --bg: #f0f3f7;
+  --surface: #ffffff;
+  --surface-2: #e8ecf2;
+  --border: #d0d8e4;
+  --border-mid: #b8c4d4;
+  --accent-cyan: #0076a8;
+  --accent-amber: #b87200;
+  --accent-green: #007a47;
+  --text-primary: #111b28;
+  --text-muted: #4a6070;
+  --text-dim: #8a9db0;
 }
 
 @theme inline {
@@ -45,7 +45,7 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
-  background-image: radial-gradient(circle, #B8C4D4 1px, transparent 1px);
+  background-image: radial-gradient(circle, #b8c4d4 1px, transparent 1px);
   background-size: 28px 28px;
   opacity: 0.45;
   pointer-events: none;
@@ -87,13 +87,23 @@ input::placeholder {
 
 /* Animations */
 @keyframes pulse-label {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 @keyframes blink-cursor {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 @keyframes fade-up {
@@ -108,8 +118,16 @@ input::placeholder {
 }
 
 @keyframes radar-sweep {
-  0% { transform: scaleX(0); transform-origin: left; opacity: 0.9; }
-  100% { transform: scaleX(1); transform-origin: left; opacity: 0; }
+  0% {
+    transform: scaleX(0);
+    transform-origin: left;
+    opacity: 0.9;
+  }
+  100% {
+    transform: scaleX(1);
+    transform-origin: left;
+    opacity: 0;
+  }
 }
 
 .msg-enter {

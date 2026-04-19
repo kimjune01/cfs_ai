@@ -36,11 +36,13 @@ function runClaude(prompt, extraArgs = []) {
       [
         "--enable-auto-mode",
         "--print",
-        "--output-format", "json",
-        "--model", "sonnet",
+        "--output-format",
+        "json",
+        "--model",
+        "sonnet",
         ...extraArgs,
       ],
-      { cwd: projectRoot, stdio: ["pipe", "pipe", "pipe"] }
+      { cwd: projectRoot, stdio: ["pipe", "pipe", "pipe"] },
     );
 
     let stdout = "";
@@ -82,7 +84,7 @@ const expansionRaw = await runClaude(
 Given a user question, return 3-4 alternative search queries that capture different aspects or phrasings.
 Return ONLY a JSON array of strings — no explanation, no markdown.
 
-User question: ${userQuery}`
+User question: ${userQuery}`,
 );
 
 let alternatives;
@@ -137,9 +139,12 @@ Initial search results (from query expansion):
 ${initialContext}`;
 
 const answer = await runClaude(userMessage, [
-  "--system-prompt", systemPrompt,
-  "--allowedTools", "Bash",
-  "--permission-mode", "bypassPermissions",
+  "--system-prompt",
+  systemPrompt,
+  "--allowedTools",
+  "Bash",
+  "--permission-mode",
+  "bypassPermissions",
 ]);
 
 console.log("\n" + answer);

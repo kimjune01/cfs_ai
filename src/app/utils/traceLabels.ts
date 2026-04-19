@@ -13,8 +13,6 @@ const traceLabel = (event: TraceEvent): string => {
       return "Rephrasing query for vector search…";
     case "clarification":
       return "Asking for clarification…";
-    case "high_effort":
-      return `High-effort mode — ${event.reason}`;
     case "vector_search":
       return `Searching: "${event.query}"…`;
     case "vector_results":
@@ -23,6 +21,10 @@ const traceLabel = (event: TraceEvent): string => {
       return `Locating pages for ${event.terms.join(", ")}…`;
     case "vision_render":
       return `Rendering CFS pages ${event.pages.join(", ")} — almost there…`;
+    case "decision":
+      return event.action === "answer"
+        ? "Vector results sufficient — answering…"
+        : "Vector confidence low — escalating to vision…";
     case "synthesize":
       return "Synthesizing answer…";
     case "done":
@@ -43,8 +45,6 @@ const eventLabel = (event: TraceEvent): string => {
       return "Rephrasing query for vector search";
     case "clarification":
       return `Query: "${event.question}"`;
-    case "high_effort":
-      return `High-effort mode · ${event.reason}`;
     case "vector_search":
       return `VSR "${event.query}"`;
     case "vector_results":
@@ -53,6 +53,10 @@ const eventLabel = (event: TraceEvent): string => {
       return `VIS ${event.terms.join(", ")}`;
     case "vision_render":
       return `RND pages ${event.pages.join(", ")}`;
+    case "decision":
+      return event.action === "answer"
+        ? "Decision: answer from vector"
+        : "Decision: escalate to vision";
     case "synthesize":
       return "Synthesizing answer";
     case "done":

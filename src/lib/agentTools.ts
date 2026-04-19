@@ -1,6 +1,5 @@
 import type { Turn, VectorChunk } from "./types";
 import { runClaude, parseJsonStringArray } from "./utils/claudeUtils";
-import { parseJsonObject } from "./utils/parseJson";
 
 const VECTOR_CONFIDENCE_THRESHOLD = 0.72;
 const ICAO_RE = /\bC[A-Z]{3}\b/;
@@ -55,20 +54,6 @@ const buildDecisionPrompt = (
   `Vector results:\n${formatVectorChunks(chunks, topScore)}\n\n` +
   `Answer or call read_pages.`;
 
-// Extract PDF-searchable terms: ICAO codes from question (fast), or Claude-generated (slow)
-const extractSearchTerms = async (question: string, signal?: AbortSignal): Promise<string[]> => {
-  const icaoCodes = extractICAOCodes(question);
-  if (icaoCodes.length > 0) return icaoCodes;
-
-  const raw = await runClaude(
-    `Return a JSON array of search terms to find this aerodrome in the NavCanada CFS PDF. ` +
-      `First term must be the 4-letter ICAO code. Optionally add the aerodrome name. No section keywords (runway, frequency, etc.).\n\n` +
-      `Question: ${question}`,
-    signal,
-  );
-  return parseJsonStringArray(raw);
-};
-
 const rephraseMultipleQueries = async (
   question: string,
   icaos: string[],
@@ -92,29 +77,6 @@ const checkICAO = (question: string): string | null =>
     ? null
     : "Please include the 4-letter ICAO code for the aerodrome (e.g. CYVR for Vancouver, CYXX for Abbotsford, CYHE for Hope). What aerodrome are you asking about?";
 
-const findEffortNeeded = async (
-  question: string,
-  history: Turn[],
-  signal?: AbortSignal,
-): Promise<boolean> => {
-  // Fast path: no history — pilot can't be repeating/doubting yet
-  if (history.length === 0) return false;
-
-  const prompt =
-    `${formatHistoryForPrompt(history)}` +
-    `Pilot: "${question}"\n\n` +
-    `Return {"high_effort": true} if the pilot is repeating a question, expressing doubt, or asking to verify. ` +
-    `Otherwise {"high_effort": false}.`;
-
-  try {
-    const raw = await runClaude(prompt, signal);
-    const parsed = parseJsonObject<{ high_effort: boolean }>(raw);
-    return parsed?.high_effort ?? false;
-  } catch {
-    return false;
-  }
-};
-
 export {
   VECTOR_CONFIDENCE_THRESHOLD,
   ICAO_RE,
@@ -124,8 +86,6 @@ export {
   formatVectorChunks,
   deduplicateChunksByPage,
   buildDecisionPrompt,
-  extractSearchTerms,
   rephraseMultipleQueries,
   checkICAO,
-  findEffortNeeded,
 };

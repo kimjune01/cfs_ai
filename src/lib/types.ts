@@ -9,11 +9,11 @@ type TraceEvent =
   | { type: "evaluating" }
   | { type: "rephrasing" }
   | { type: "clarification"; question: string }
-  | { type: "high_effort"; reason: string }
   | { type: "vector_search"; query: string }
   | { type: "vector_results"; count: number; topScore: number }
   | { type: "vision_search"; terms: string[] }
   | { type: "vision_render"; pages: number[] }
+  | { type: "decision"; action: "answer" | "vision" }
   | { type: "synthesize" }
   | { type: "done"; answer: string; sourcePages: number[] }
   | { type: "error"; message: string };
