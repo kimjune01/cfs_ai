@@ -1,8 +1,10 @@
 import tsPlugin from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
+import importPlugin from "eslint-plugin-import";
+import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactPlugin from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
-import jsxA11y from "eslint-plugin-jsx-a11y";
+import simpleImportSort from "eslint-plugin-simple-import-sort";
 import prettier from "eslint-config-prettier";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
@@ -13,12 +15,21 @@ export default [
   // TypeScript — type-checked rules for all TS/TSX files
   {
     files: ["src/**/*.ts", "src/**/*.tsx", "scripts/**/*.ts"],
-    plugins: { "@typescript-eslint": tsPlugin },
+    plugins: {
+      "@typescript-eslint": tsPlugin,
+      "simple-import-sort": simpleImportSort,
+      import: importPlugin,
+    },
     languageOptions: {
       parser: tsParser,
       parserOptions: {
         project: true,
         tsconfigRootDir: __dirname,
+      },
+    },
+    settings: {
+      "import/resolver": {
+        typescript: { project: `${__dirname}/tsconfig.json` },
       },
     },
     rules: {
@@ -27,6 +38,14 @@ export default [
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        { prefer: "type-imports", fixStyle: "inline-type-imports" },
+      ],
+      "simple-import-sort/imports": "error",
+      "simple-import-sort/exports": "error",
+      "import/no-duplicates": "error",
+      "import/no-cycle": "error",
       "func-style": ["error", "expression"],
       "no-restricted-syntax": [
         "error",

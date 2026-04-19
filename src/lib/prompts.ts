@@ -30,4 +30,4 @@ const VISION_SYSTEM_PROMPT = `You are the Canadian Flight Supplement Aviation As
 - If off-topic: respond only with "I can only answer questions about the Canadian Flight Supplement."
 - Otherwise end your answer with "Source: CFS page N" or "Source: CFS pages N, M" (ONLY PAGES YOU ACTUALLY USED).`;
 
-export { EVALUATOR_SYSTEM_PROMPT, EVALUATOR_RULES, DECISION_PROMPT, VISION_SYSTEM_PROMPT };
+export { DECISION_PROMPT, EVALUATOR_RULES, EVALUATOR_SYSTEM_PROMPT, VISION_SYSTEM_PROMPT };

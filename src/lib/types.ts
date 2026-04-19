@@ -5,17 +5,18 @@ type Turn = {
 };
 
 type TraceEvent =
-  | { type: "evaluating" }
-  | { type: "rephrasing" }
-  | { type: "clarification"; question: string }
-  | { type: "vector_search"; query: string }
-  | { type: "vector_results"; count: number; topScore: number }
-  | { type: "vision_search"; terms: string[] }
-  | { type: "vision_render"; pages: number[] }
-  | { type: "decision"; action: "answer" | "vision" }
-  | { type: "synthesize" }
-  | { type: "done"; answer: string; sourcePages: number[] }
-  | { type: "error"; message: string };
+  | { type: "evaluating" } // 1. evaluator runs
+  | { type: "clarification"; question: string } // 1a. evaluator needs more info
+  | { type: "rephrasing" } // 2. query rewriting
+  | { type: "vector_search"; query: string } // 3. one per rephrase query
+  | { type: "vector_results"; count: number; topScore: number } // 3a. results back
+  | { type: "deciding" } // 4. decision prompt running
+  | { type: "decision"; action: "answer" | "vision" } // 4a. verdict
+  | { type: "vision_search"; terms: string[] } // 5. vision path: locating pages
+  | { type: "vision_reading"; pages: number[] } // 5a. vision path: reading pages
+  | { type: "synthesize" } // 6. composing final answer
+  | { type: "done"; answer: string; sourcePages: number[] } // 7. complete
+  | { type: "error"; message: string }; // any stage
 
 type EmitFn = (event: TraceEvent) => void;
 
@@ -34,4 +35,4 @@ type AgentResult = {
   toolsCalled: ("vector" | "vision")[];
 };
 
-export type { Turn, TraceEvent, EmitFn, VectorChunk, AgentResult };
+export type { AgentResult, EmitFn, TraceEvent, Turn, VectorChunk };

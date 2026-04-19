@@ -168,3 +168,23 @@ input::placeholder {
   padding: 0 4px;
   font-size: 0.9em;
 }
+.prose-answer table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0 0.75em;
+  font-size: 0.85em;
+}
+.prose-answer th,
+.prose-answer td {
+  border: 1px solid var(--border);
+  padding: 5px 10px;
+  text-align: left;
+}
+.prose-answer th {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.prose-answer tr:nth-child(even) td {
+  background: var(--surface-2);
+}

@@ -1,4 +1,5 @@
-import { NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
+
 import { runAgentLoop } from "../../../lib/agentLoop";
 import type { TraceEvent, Turn } from "../../../lib/types";
 

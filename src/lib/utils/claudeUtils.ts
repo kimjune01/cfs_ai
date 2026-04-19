@@ -1,5 +1,6 @@
 import { spawn } from "child_process";
-import { CLAUDE_BIN, claudeEnv, attachAbort } from "./processUtils";
+
+import { attachAbort, CLAUDE_BIN, claudeEnv } from "./processUtils";
 
 const runClaude = (prompt: string, signal?: AbortSignal, systemPrompt?: string): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -39,4 +40,4 @@ const parseJsonStringArray = (raw: string): string[] => {
   }
 };
 
-export { runClaude, parseJsonStringArray };
+export { parseJsonStringArray, runClaude };

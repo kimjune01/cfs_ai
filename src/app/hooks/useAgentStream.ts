@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
+
 import type { TraceEvent, Turn } from "../../lib/types";
 import { traceLabel } from "../utils/traceLabels";
 

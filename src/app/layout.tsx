@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
-import { JetBrains_Mono, Barlow_Condensed } from "next/font/google";
 import "./globals.css";
+
+import type { Metadata } from "next";
+import { Barlow_Condensed, JetBrains_Mono } from "next/font/google";
 
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains",

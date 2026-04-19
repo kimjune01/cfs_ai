@@ -1,5 +1,5 @@
 import type { Turn, VectorChunk } from "./types";
-import { runClaude, parseJsonStringArray } from "./utils/claudeUtils";
+import { parseJsonStringArray, runClaude } from "./utils/claudeUtils";
 
 const ICAO_RE_GLOBAL = /\bC[A-Z]{3}\b/g;
 
@@ -61,9 +61,9 @@ const rephraseMultipleQueries = async (
 };
 
 export {
+  buildDecisionPrompt,
+  deduplicateChunksByPage,
   extractICAOCodes,
   formatHistoryForPrompt,
-  deduplicateChunksByPage,
-  buildDecisionPrompt,
   rephraseMultipleQueries,
 };

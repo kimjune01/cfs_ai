@@ -1,13 +1,14 @@
 import { spawn } from "child_process";
 import { join } from "path";
+
+import { emit } from "./emitContext";
+import type { VectorChunk } from "./types";
 import { attachAbort } from "./utils/processUtils";
-import type { EmitFn, VectorChunk } from "./types";
 
 const CFS_SEARCH = join(process.cwd(), "scripts", "cfs_search.mjs");
 
 const vectorSearch = async (
   query: string,
-  emit: EmitFn,
   signal?: AbortSignal,
 ): Promise<{ chunks: VectorChunk[]; topScore: number }> => {
   emit({ type: "vector_search", query });

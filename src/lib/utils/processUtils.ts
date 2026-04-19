@@ -1,4 +1,4 @@
-import { spawn } from "child_process";
+import { type spawn } from "child_process";
 
 const CLAUDE_BIN = "claude";
 
@@ -12,4 +12,4 @@ const attachAbort = (proc: ReturnType<typeof spawn>, signal: AbortSignal): void 
   proc.on("close", () => signal.removeEventListener("abort", onAbort));
 };
 
-export { CLAUDE_BIN, claudeEnv, attachAbort };
+export { attachAbort, CLAUDE_BIN, claudeEnv };

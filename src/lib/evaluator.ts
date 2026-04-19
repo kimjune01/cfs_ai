@@ -1,8 +1,9 @@
+import { formatHistoryForPrompt } from "./agentTools";
+import { emit } from "./emitContext";
+import { EVALUATOR_RULES, EVALUATOR_SYSTEM_PROMPT } from "./prompts";
+import type { AgentResult, Turn } from "./types";
 import { runClaude } from "./utils/claudeUtils";
 import { parseJsonObject } from "./utils/parseJson";
-import { formatHistoryForPrompt } from "./agentTools";
-import { EVALUATOR_SYSTEM_PROMPT, EVALUATOR_RULES } from "./prompts";
-import type { AgentResult, EmitFn, Turn } from "./types";
 
 type EvaluatorResult =
   | { status: "ready"; icao: string; question: string }
@@ -48,7 +49,6 @@ const evaluate = async (
 const runEvaluationGate = async (
   question: string,
   history: Turn[],
-  emit: EmitFn,
   signal?: AbortSignal,
 ): Promise<EvaluationGateResult> => {
   emit({ type: "evaluating" });

@@ -1,14 +1,15 @@
 import { spawn } from "child_process";
-import { attachAbort, claudeEnv, CLAUDE_BIN } from "./utils/processUtils";
+
+import { emit } from "./emitContext";
+import { VISION_SYSTEM_PROMPT } from "./prompts";
 import {
   getPdfPages,
-  searchPages,
   largestCluster,
-  renderPages,
   parseSourceCitation,
+  renderPages,
+  searchPages,
 } from "./utils/pdfUtils";
-import { VISION_SYSTEM_PROMPT } from "./prompts";
-import type { EmitFn } from "./types";
+import { attachAbort, CLAUDE_BIN, claudeEnv } from "./utils/processUtils";
 
 const runClaudeVision = (
   imageBlocks: object[],
@@ -74,7 +75,6 @@ const runClaudeVision = (
 const visionSearch = async (
   searchTerms: string[],
   question: string,
-  emit: EmitFn,
   signal?: AbortSignal,
 ): Promise<{ answer: string; sourcePages: number[] }> => {
   emit({ type: "vision_search", terms: searchTerms });
@@ -96,7 +96,6 @@ const visionSearch = async (
     };
   }
 
-  emit({ type: "vision_render", pages: entryPages });
   const images = await renderPages(entryPages);
 
   const imageBlocks = images.flatMap(({ pageNum, b64 }) => [
@@ -104,6 +103,7 @@ const visionSearch = async (
     { type: "image", source: { type: "base64", media_type: "image/png", data: b64 } },
   ]);
 
+  emit({ type: "vision_reading", pages: entryPages });
   const full = await runClaudeVision(imageBlocks, question, signal);
   const { answer, pages } = parseSourceCitation(full, entryPages);
   return { answer, sourcePages: pages };

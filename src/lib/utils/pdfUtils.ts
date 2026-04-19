@@ -1,8 +1,8 @@
 import { execFile } from "child_process";
-import { promisify } from "util";
-import { join } from "path";
 import { mkdtempSync, readFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
+import { join } from "path";
+import { promisify } from "util";
 
 const execFileAsync = promisify(execFile);
 const PDF_PATH = join(process.cwd(), "public", "CFS.pdf");
@@ -85,4 +85,4 @@ const parseSourceCitation = (
   };
 };
 
-export { getPdfPages, searchPages, largestCluster, renderPages, parseSourceCitation };
+export { getPdfPages, largestCluster, parseSourceCitation, renderPages, searchPages };

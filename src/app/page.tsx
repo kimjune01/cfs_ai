@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { useAgentStream } from "./hooks/useAgentStream";
-import AgentTrace from "./components/AgentTrace";
+import remarkGfm from "remark-gfm";
+
 import type { TraceEvent, Turn } from "../lib/types";
+import AgentTrace from "./components/AgentTrace";
+import { useAgentStream } from "./hooks/useAgentStream";
 
 const PDFPageViewer = dynamic(() => import("./components/PDFPageViewer"), {
   ssr: false,
@@ -332,7 +334,7 @@ const AssistantMessage = ({ content }: { content: string }) => {
             color: "var(--text-primary)",
           }}
         >
-          <ReactMarkdown>{content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
         </div>
       </div>
     </div>
