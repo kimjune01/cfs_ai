@@ -149,5 +149,5 @@ Exit code 0 = all pass, 1 = any failures.
 
 - **Ask in plain English** — you don't need to know the ICAO code. "What's the circuit altitude at Pitt Meadows?" works just as well as `CYPK`. The evaluator infers the code or asks if it's ambiguous.
 - **Ask specific questions** — circuit altitude, tower frequency, fuel types, runway dimensions, lighting.
-- **Say "verify that" or "are you sure"** — the decision step detects doubt or repetition and escalates directly to vision, reading the actual PDF page for ground truth.
+- **Vision fallback is automatic** — the agent escalates to reading the actual PDF when it isn't confident in the vector results, or when you express doubt or ask to verify a previous answer.
 - The agent trace (collapsed below each answer) shows exactly which tools ran and what confidence scores were returned.

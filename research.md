@@ -21,8 +21,8 @@ Pipeline in `src/lib/agentLoop.ts`:
 
 1. **Evaluator** — infers or validates ICAO code, rejects non-BC / off-topic questions, loops with clarifying questions until unambiguous. Hands off a synthesized self-contained question.
 2. **Query rewriting** — Claude optimizes the resolved question for vector search
-3. **Vector search** — LanceDB ANN + ICAO keyword matching (confidence threshold: 0.72)
-4. **Decision** — answers directly if results are sufficient; escalates to vision if confidence is low, field label doesn't match, or pilot is repeating/doubting a previous answer
+3. **Vector search** — LanceDB ANN + ICAO keyword matching
+4. **Decision** — answers directly if results are sufficient; escalates to vision if results are ambiguous, field label doesn't match, or pilot is repeating/doubting a previous answer
 5. **Vision escalation** — PDF pages rendered as images, Claude reads them for ground truth
 
 ## Key Files
@@ -38,7 +38,7 @@ Pipeline in `src/lib/agentLoop.ts`:
 | `src/lib/utils/claudeUtils.ts`         | Claude subprocess wrapper (`runClaude`, `parseJsonStringArray`)             |
 | `src/lib/utils/pdfUtils.ts`            | PDF I/O: text extraction, page clustering, image rendering                  |
 | `src/lib/utils/processUtils.ts`        | Shared: CLAUDE_BIN, claudeEnv, attachAbort                                  |
-| `src/app/utils/traceLabels.ts`         | `traceLabel` (live status) and `eventLabel` (trace panel)                   |
+| `src/app/utils/traceLabels.ts`         | `traceLabel` — maps trace events to human-readable status strings           |
 | `src/lib/types.ts`                     | Turn, TraceEvent, VectorChunk, AgentResult types                            |
 | `src/app/api/chat/route.ts`            | POST endpoint, streams NDJSON trace events                                  |
 | `src/app/page.tsx`                     | Chat UI                                                                     |
