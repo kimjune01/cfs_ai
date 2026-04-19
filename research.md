@@ -27,35 +27,40 @@ Pipeline in `src/lib/agentLoop.ts`:
 
 ## Key Files
 
-| File                                   | Role                                                                        |
-| -------------------------------------- | --------------------------------------------------------------------------- |
-| `src/lib/agentLoop.ts`                 | Pipeline orchestration: `runVectorSearch`, `runDecision`, `runVisionSearch` |
-| `src/lib/evaluator.ts`                 | ICAO inference, BC scope check, clarification loop                          |
-| `src/lib/prompts.ts`                   | All Claude system prompts (evaluator, decision, vision)                     |
-| `src/lib/agentTools.ts`                | Query logic: ICAO extraction, search term rephrasing, vector formatting     |
-| `src/lib/vectorSearch.ts`              | LanceDB hybrid search subprocess wrapper                                    |
-| `src/lib/visionSearch.ts`              | PDF vision pipeline (pdftotext → pdftoppm → Claude)                         |
-| `src/lib/utils/claudeUtils.ts`         | Claude subprocess wrapper (`runClaude`, `parseJsonStringArray`)             |
-| `src/lib/utils/pdfUtils.ts`            | PDF I/O: text extraction, page clustering, image rendering                  |
-| `src/lib/utils/processUtils.ts`        | Shared: CLAUDE_BIN, claudeEnv, attachAbort                                  |
-| `src/app/utils/traceLabels.ts`         | `traceLabel` — maps trace events to human-readable status strings           |
-| `src/lib/types.ts`                     | Turn, TraceEvent, VectorChunk, AgentResult types                            |
-| `src/app/api/chat/route.ts`            | POST endpoint, streams NDJSON trace events                                  |
-| `src/app/page.tsx`                     | Chat UI                                                                     |
-| `src/app/components/AgentTrace.tsx`    | Collapsible trace panel                                                     |
-| `src/app/components/PDFPageViewer.tsx` | Canvas PDF renderer                                                         |
-| `src/app/hooks/useAgentStream.ts`      | Client-side NDJSON stream consumer                                          |
-| `scripts/cfs_search.mjs`               | Vector search CLI (spawned per request)                                     |
-| `scripts/embed_chunks.mjs`             | One-time: chunks.json → LanceDB index                                       |
-| `scripts/parse_cfs.py`                 | One-time: PDF → chunks.json (via docling)                                   |
-| `data/chunks.json`                     | ~1000 parsed aerodrome entries                                              |
-| `data/lancedb/`                        | Vector index                                                                |
-| `public/CFS.pdf`                       | Source NavCanada CFS document                                               |
+| File                                   | Role                                                                          |
+| -------------------------------------- | ----------------------------------------------------------------------------- |
+| `src/lib/agentLoop.ts`                 | Pipeline orchestration: `runVectorSearch`, `runDecision`, `runVisionSearch`   |
+| `src/lib/evaluator.ts`                 | ICAO inference, BC scope check, clarification loop                            |
+| `src/lib/prompts.ts`                   | All Claude system prompts (evaluator, decision, vision)                       |
+| `src/lib/agentTools.ts`                | Query logic: ICAO extraction, search term rephrasing, vector formatting       |
+| `src/lib/vectorSearch.ts`              | LanceDB hybrid search subprocess wrapper                                      |
+| `src/lib/visionSearch.ts`              | PDF vision pipeline (pdftotext → pdftoppm → Claude)                           |
+| `src/lib/emitContext.ts`               | `AsyncLocalStorage`-based emit context — avoids threading emit through params |
+| `src/lib/utils/claudeUtils.ts`         | Claude subprocess wrapper — 60s timeout, 1 retry on transient failure         |
+| `src/app/hooks/useTheme.ts`            | Dark mode toggle — persists to localStorage, respects system preference       |
+| `src/lib/utils/pdfUtils.ts`            | PDF I/O: text extraction, page clustering, image rendering                    |
+| `src/lib/utils/processUtils.ts`        | Shared: CLAUDE_BIN, claudeEnv, attachAbort                                    |
+| `src/app/utils/traceLabels.ts`         | `traceLabel` — maps trace events to human-readable status strings             |
+| `src/lib/types.ts`                     | Turn, TraceEvent, VectorChunk, AgentResult types                              |
+| `src/app/api/chat/route.ts`            | POST endpoint, streams NDJSON trace events                                    |
+| `src/app/page.tsx`                     | Chat UI                                                                       |
+| `src/app/components/AgentTrace.tsx`    | Collapsible trace panel                                                       |
+| `src/app/components/PDFPageViewer.tsx` | Canvas PDF renderer                                                           |
+| `src/app/hooks/useAgentStream.ts`      | Client-side NDJSON stream consumer                                            |
+| `scripts/cfs_search.mjs`               | Vector search CLI (spawned per request)                                       |
+| `scripts/embed_chunks.mjs`             | One-time: chunks.json → LanceDB index                                         |
+| `scripts/parse_cfs.py`                 | One-time: PDF → chunks.json (via docling)                                     |
+| `data/chunks.json`                     | ~1000 parsed aerodrome entries                                                |
+| `data/lancedb/`                        | Vector index                                                                  |
+| `public/CFS.pdf`                       | Source NavCanada CFS document                                                 |
 
 ## Notable Patterns
 
-- Claude invoked via **subprocess spawn** (not SDK) — forces macOS keychain OAuth, `ANTHROPIC_API_KEY` stripped from subprocess env
-- **Streaming NDJSON** — client sees real-time trace events (`evaluating`, `vector_search`, `decision`, `vision_render`, `done`, etc.)
+- Claude invoked via **subprocess spawn** (not SDK) — forces macOS keychain OAuth, `ANTHROPIC_API_KEY` stripped from subprocess env. 60s timeout, 1 retry on transient failure.
+- **Emit context** — `AsyncLocalStorage` stores the emit function per request; pipeline modules import `emit` directly instead of receiving it as a parameter
+- **Streaming NDJSON** — client sees real-time trace events (`evaluating`, `vector_search`, `deciding`, `decision`, `vision_search`, `vision_reading`, `synthesize`, `done`)
+- **Markdown rendering** — answers rendered via `react-markdown` + `remark-gfm` (tables, bold, lists)
+- **Dark mode** — CSS custom properties on `html.dark`, toggled via `useTheme` hook, persisted to localStorage
 - **Client-side PDF** — shared PDF.js doc instance, lazy per-page rendering
 - **Max history**: 10 turns (truncated to prevent prompt bloat)
 
