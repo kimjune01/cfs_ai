@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
+import ReactMarkdown from "react-markdown";
 import { useAgentStream } from "./hooks/useAgentStream";
 import AgentTrace from "./components/AgentTrace";
 import type { TraceEvent, Turn } from "../lib/types";
@@ -323,7 +324,7 @@ const AssistantMessage = ({ content }: { content: string }) => {
           CFS
         </div>
         <div
-          className="px-4 py-3 rounded text-sm whitespace-pre-wrap leading-relaxed"
+          className="px-4 py-3 rounded text-sm leading-relaxed prose-answer"
           style={{
             background: "var(--surface)",
             border: "1px solid var(--border)",
@@ -331,7 +332,7 @@ const AssistantMessage = ({ content }: { content: string }) => {
             color: "var(--text-primary)",
           }}
         >
-          {content}
+          <ReactMarkdown>{content}</ReactMarkdown>
         </div>
       </div>
     </div>

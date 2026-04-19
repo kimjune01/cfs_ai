@@ -141,3 +141,30 @@ input::placeholder {
 .pulse-label {
   animation: pulse-label 2s ease-in-out infinite;
 }
+
+.prose-answer p {
+  margin: 0 0 0.6em;
+}
+.prose-answer p:last-child {
+  margin-bottom: 0;
+}
+.prose-answer strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.prose-answer ul,
+.prose-answer ol {
+  margin: 0.4em 0 0.6em 1.2em;
+  padding: 0;
+}
+.prose-answer li {
+  margin-bottom: 0.25em;
+}
+.prose-answer code {
+  font-family: inherit;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+  font-size: 0.9em;
+}
