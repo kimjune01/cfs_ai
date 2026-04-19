@@ -22,6 +22,8 @@ const SAMPLE_QUERIES = [
   "What frequency does Kamloops tower use?",
   "Is there fuel available at Hope?",
   "What are the operating hours at CYVR?",
+  "How do I turn on runway lights at CZBB?",
+  "What is Vancouver Harbour ATIS frequency?",
 ];
 
 const Home = () => {
