@@ -11,7 +11,7 @@ type PDFPageProxy = {
 // Shared document instance — avoids reloading and reparsing the PDF per component
 let sharedDocPromise: Promise<PDFDocumentProxy> | null = null;
 
-function getSharedPdfDoc(): Promise<PDFDocumentProxy> {
+const getSharedPdfDoc = (): Promise<PDFDocumentProxy> => {
   if (!sharedDocPromise) {
     sharedDocPromise = import("pdfjs-dist").then(({ getDocument, GlobalWorkerOptions }) => {
       GlobalWorkerOptions.workerSrc = "/pdf.worker.mjs";
@@ -19,11 +19,11 @@ function getSharedPdfDoc(): Promise<PDFDocumentProxy> {
     });
   }
   return sharedDocPromise;
-}
+};
 
 type Props = { pageNumber: number };
 
-export default function PDFPageViewer({ pageNumber }: Props) {
+const PDFPageViewer = ({ pageNumber }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,7 +31,7 @@ export default function PDFPageViewer({ pageNumber }: Props) {
   useEffect(() => {
     let cancelled = false;
 
-    async function render() {
+    const render = async () => {
       try {
         const pdf = await getSharedPdfDoc();
         if (cancelled) return;
@@ -58,7 +58,7 @@ export default function PDFPageViewer({ pageNumber }: Props) {
           console.error(e);
         }
       }
-    }
+    };
 
     void render();
     return () => {
@@ -92,4 +92,6 @@ export default function PDFPageViewer({ pageNumber }: Props) {
       <canvas ref={canvasRef} className="w-full" style={{ display: loading ? "none" : "block" }} />
     </div>
   );
-}
+};
+
+export default PDFPageViewer;

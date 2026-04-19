@@ -27,6 +27,14 @@ export default [
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
+      "func-style": ["error", "expression"],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "ExportNamedDeclaration[declaration!=null]",
+          message: "Use grouped exports at end of file: export { name1, name2 }",
+        },
+      ],
     },
   },
 
@@ -47,6 +55,12 @@ export default [
       ...reactHooks.configs.recommended.rules,
       ...jsxA11y.flatConfigs.recommended.rules,
     },
+  },
+
+  // Next.js layout — export const metadata is a framework requirement
+  {
+    files: ["src/app/layout.tsx"],
+    rules: { "no-restricted-syntax": "off" },
   },
 
   // Prettier — must be last to override conflicting formatting rules

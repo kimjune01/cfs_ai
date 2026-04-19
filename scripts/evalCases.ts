@@ -1,4 +1,4 @@
-export interface EvalCase {
+interface EvalCase {
   id: string;
   question: string;
   expected_behavior: string;
@@ -6,7 +6,7 @@ export interface EvalCase {
   tags?: string[];
 }
 
-export const EVAL_CASES: EvalCase[] = [
+const EVAL_CASES: EvalCase[] = [
   {
     id: "cyvr-tower-freq",
     question: "What is the tower frequency at CYVR?",
@@ -166,3 +166,6 @@ export const EVAL_CASES: EvalCase[] = [
     tags: ["evaluator", "inference", "frequency", "tower"],
   },
 ];
+
+export type { EvalCase };
+export { EVAL_CASES };

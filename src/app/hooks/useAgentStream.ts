@@ -4,19 +4,19 @@ import { useRef, useState, useCallback } from "react";
 import type { TraceEvent, Turn } from "../../lib/types";
 import { traceLabel } from "../utils/traceLabels";
 
-export type StreamState = {
+type StreamState = {
   loading: boolean;
   liveStatus: string;
 };
 
-export function useAgentStream() {
+const useAgentStream = () => {
   const abortRef = useRef<AbortController | null>(null);
   const [state, setState] = useState<StreamState>({ loading: false, liveStatus: "" });
 
-  async function send(
+  const send = async (
     question: string,
     history: Turn[],
-  ): Promise<{ answer: string; sourcePages: number[]; traceEvents: TraceEvent[] }> {
+  ): Promise<{ answer: string; sourcePages: number[]; traceEvents: TraceEvent[] }> => {
     abortRef.current?.abort();
     abortRef.current = new AbortController();
 
@@ -73,11 +73,13 @@ export function useAgentStream() {
 
     setState({ loading: false, liveStatus: "" });
     return { answer, sourcePages, traceEvents };
-  }
+  };
 
   const abort = useCallback(() => {
     abortRef.current?.abort();
   }, []);
 
   return { state, send, abort };
-}
+};
+
+export { useAgentStream };

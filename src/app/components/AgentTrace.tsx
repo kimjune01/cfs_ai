@@ -1,7 +1,7 @@
 "use client";
 
 import type { TraceEvent } from "../../lib/types";
-import { eventLabel } from "../utils/traceLabels";
+import { traceLabel } from "../utils/traceLabels";
 
 type Props = {
   events: TraceEvent[];
@@ -43,7 +43,7 @@ export default function AgentTrace({ events }: Props) {
             >
               {String(i + 1).padStart(2, "0")}
             </span>
-            <span className="font-mono leading-relaxed">{eventLabel(event)}</span>
+            <span className="font-mono leading-relaxed">{traceLabel(event)}</span>
           </li>
         ))}
       </ol>

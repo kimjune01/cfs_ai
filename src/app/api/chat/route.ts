@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { runAgentLoop } from "../../../lib/agentLoop";
 import type { TraceEvent, Turn } from "../../../lib/types";
 
-export async function POST(request: NextRequest) {
+const POST = async (request: NextRequest) => {
   let body: unknown;
   try {
     body = await request.json();
@@ -23,10 +23,10 @@ export async function POST(request: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      function emit(event: TraceEvent) {
+      const emit = (event: TraceEvent) => {
         if (signal.aborted) return;
         controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
-      }
+      };
 
       try {
         await runAgentLoop(question, history, emit, signal);
@@ -49,4 +49,6 @@ export async function POST(request: NextRequest) {
       "Cache-Control": "no-store",
     },
   });
-}
+};
+
+export { POST };

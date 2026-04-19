@@ -32,7 +32,7 @@ interface JudgeResult {
   fatal_error: string | null;
 }
 
-function buildJudgePrompt(evalCase: EvalCase, actualAnswer: string): string {
+const buildJudgePrompt = (evalCase: EvalCase, actualAnswer: string): string => {
   return `You are an aviation accuracy judge evaluating an AI assistant's answer about the Canadian Flight Supplement (CFS).
 
 ## Test Case
@@ -69,9 +69,9 @@ or:
   "reason": "one or two sentences explaining what was wrong",
   "fatal_error": "quote the specific wrong statement from the actual answer"
 }`;
-}
+};
 
-function callJudge(evalCase: EvalCase, actualAnswer: string): Promise<JudgeResult> {
+const callJudge = (evalCase: EvalCase, actualAnswer: string): Promise<JudgeResult> => {
   return new Promise((resolve) => {
     const proc = spawn(
       "claude",
@@ -99,7 +99,7 @@ function callJudge(evalCase: EvalCase, actualAnswer: string): Promise<JudgeResul
     proc.stdin.write(buildJudgePrompt(evalCase, actualAnswer));
     proc.stdin.end();
   });
-}
+};
 
 // ─── Runner ──────────────────────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ interface CaseResult {
   actual?: string;
 }
 
-async function runCase(evalCase: EvalCase): Promise<CaseResult> {
+const runCase = async (evalCase: EvalCase): Promise<CaseResult> => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -140,11 +140,11 @@ async function runCase(evalCase: EvalCase): Promise<CaseResult> {
     fatal_error: judgment.fatal_error,
     actual: actualAnswer,
   };
-}
+};
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-async function main() {
+const main = async () => {
   const cases = FILTER_TAG ? EVAL_CASES.filter((c) => c.tags?.includes(FILTER_TAG)) : EVAL_CASES;
 
   if (cases.length === 0) {
@@ -183,7 +183,7 @@ async function main() {
     console.log(`failed: ${failedIds.join(", ")}`);
     process.exit(1);
   }
-}
+};
 
 main().catch((e) => {
   console.error(e);

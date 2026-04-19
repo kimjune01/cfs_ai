@@ -18,13 +18,13 @@ type Message = {
 };
 
 const SAMPLE_QUERIES = [
-  "What is the circuit altitude at CYPK?",
-  "What frequency does CYKA tower use?",
-  "Is there fuel available at CYHE Hope?",
+  "What is the circuit altitude at Pitt Meadows?",
+  "What frequency does Kamloops tower use?",
+  "Is there fuel available at Hope?",
   "What are the operating hours at CYVR?",
 ];
 
-export default function Home() {
+const Home = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [history, setHistory] = useState<Turn[]>([]);
   const [input, setInput] = useState("");
@@ -38,7 +38,7 @@ export default function Home() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, state.loading]);
 
-  async function submitQuestion(question: string) {
+  const submitQuestion = async (question: string) => {
     if (state.loading) return;
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: question }]);
@@ -58,7 +58,7 @@ export default function Home() {
         { role: "assistant" as const, content: answer, pagesFound: sourcePages },
       ].slice(-20),
     );
-  }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -280,11 +280,11 @@ export default function Home() {
       </div>
     </main>
   );
-}
+};
 
 /* ── Sub-components ── */
 
-function UserMessage({ content }: { content: string }) {
+const UserMessage = ({ content }: { content: string }) => {
   return (
     <div className="flex justify-end">
       <div style={{ maxWidth: "80%" }}>
@@ -308,9 +308,9 @@ function UserMessage({ content }: { content: string }) {
       </div>
     </div>
   );
-}
+};
 
-function AssistantMessage({ content }: { content: string }) {
+const AssistantMessage = ({ content }: { content: string }) => {
   return (
     <div className="flex justify-start">
       <div style={{ maxWidth: "88%" }}>
@@ -334,9 +334,9 @@ function AssistantMessage({ content }: { content: string }) {
       </div>
     </div>
   );
-}
+};
 
-function SourcePages({ pages }: { pages: number[] }) {
+const SourcePages = ({ pages }: { pages: number[] }) => {
   return (
     <div className="rounded overflow-hidden" style={{ border: "1px solid var(--border)" }}>
       <div
@@ -361,9 +361,9 @@ function SourcePages({ pages }: { pages: number[] }) {
       ))}
     </div>
   );
-}
+};
 
-function SampleQuery({ text, onSelect }: { text: string; onSelect: (q: string) => void }) {
+const SampleQuery = ({ text, onSelect }: { text: string; onSelect: (q: string) => void }) => {
   const [hovered, setHovered] = useState(false);
   return (
     <button
@@ -385,4 +385,6 @@ function SampleQuery({ text, onSelect }: { text: string; onSelect: (q: string) =
       {text}
     </button>
   );
-}
+};
+
+export default Home;

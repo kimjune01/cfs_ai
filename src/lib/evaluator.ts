@@ -75,5 +75,4 @@ const runEvaluationGate = async (
   return { handled: false, resolvedQuestion: evaluation.question };
 };
 
-export type { EvaluatorResult, EvaluationGateResult };
-export { evaluate, runEvaluationGate };
+export { runEvaluationGate };

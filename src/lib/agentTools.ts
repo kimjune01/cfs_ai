@@ -1,7 +1,6 @@
 import type { Turn, VectorChunk } from "./types";
 import { runClaude, parseJsonStringArray } from "./utils/claudeUtils";
 
-const ICAO_RE = /\bC[A-Z]{3}\b/;
 const ICAO_RE_GLOBAL = /\bC[A-Z]{3}\b/g;
 
 const extractICAOCodes = (question: string): string[] =>
@@ -61,19 +60,10 @@ const rephraseMultipleQueries = async (
   return queries;
 };
 
-const checkICAO = (question: string): string | null =>
-  ICAO_RE.test(question.toUpperCase())
-    ? null
-    : "Please include the 4-letter ICAO code for the aerodrome (e.g. CYVR for Vancouver, CYXX for Abbotsford, CYHE for Hope). What aerodrome are you asking about?";
-
 export {
-  ICAO_RE,
-  ICAO_RE_GLOBAL,
   extractICAOCodes,
   formatHistoryForPrompt,
-  formatVectorChunks,
   deduplicateChunksByPage,
   buildDecisionPrompt,
   rephraseMultipleQueries,
-  checkICAO,
 };

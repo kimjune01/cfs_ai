@@ -85,4 +85,4 @@ const parseSourceCitation = (
   };
 };
 
-export { PDF_PATH, getPdfPages, searchPages, largestCluster, renderPages, parseSourceCitation };
+export { getPdfPages, searchPages, largestCluster, renderPages, parseSourceCitation };
