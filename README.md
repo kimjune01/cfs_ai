@@ -2,6 +2,8 @@
 
 An AI-powered Q&A tool for Canadian pilots. Ask questions about aerodromes, circuit altitudes, radio frequencies, runway data, fuel availability, and more — all grounded in the NavCanada Canadian Flight Supplement (CFS).
 
+> **Note:** The CFS PDF is not included in this repo. NavCanada retains copyright over the CFS, so you must obtain your own copy and place it at `public/CFS.pdf`. For the same reason, this app cannot be deployed publicly.
+
 ![CFS Assistant demo](Demo.png)
 
 ## How it works
@@ -119,7 +121,7 @@ cfs_ai/
    brew install poppler
    ```
 
-4. If regenerating the vector index from a new CFS PDF, run the offline scripts once:
+4. Obtain a copy of the CFS PDF from NavCanada and place it at `public/CFS.pdf`. Then generate the vector index:
 
    ```bash
    python scripts/parse_cfs.py
