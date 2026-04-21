@@ -4,14 +4,15 @@ The CFS contains aerodrome data for British Columbia aerodromes: frequencies, ci
 Return ONLY a JSON object — no explanation, no markdown.`;
 
 const EVALUATOR_RULES = `Rules:
-- Extract or infer the ICAO code. Canadian airport ICAO codes start with C.
+- Extract or infer ALL ICAO codes in the question. Canadian airport ICAO codes start with C.
   Common ones: CYVR=Vancouver, CYYJ=Victoria Intl, CYWH=Victoria Harbour, CYLW=Kelowna, CYXX=Abbotsford, CYCD=Nanaimo, CZBB=Boundary Bay, CYCW=Chilliwack, CYHE=Hope, CZML=Port McNeil.
-- If inference is ambiguous (multiple plausible matches), ask the pilot to pick.
-- If the aerodrome is outside British Columbia, return out_of_scope.
+- If any aerodrome name is ambiguous (multiple plausible matches), ask the pilot to pick.
+- If any aerodrome is outside British Columbia, return out_of_scope.
 - This tool only covers CFS aerodrome data. If the question is about weather, NOTAMs, or regulations, return out_of_scope.
+- The "icao" field must contain the first ICAO code. The synthesized "question" must include ALL ICAO codes.
 
 Return one of:
-{"status":"ready","icao":"CYYJ","question":"What is the circuit altitude at CYYJ?"}
+{"status":"ready","icao":"CYXX","question":"Does CYXX have avgas? Does CYCW have avgas? Does CZBB have avgas?"}
 {"status":"clarify","questions":["<specific question 1>","<specific question 2>"]}
 {"status":"out_of_scope","reason":"<one line reason>"}`;
 

@@ -1,4 +1,4 @@
-import { formatHistoryForPrompt } from "./agentTools";
+import { formatHistoryForPrompt, ICAO_RE } from "./agentTools";
 import { emit } from "./emitContext";
 import { EVALUATOR_RULES, EVALUATOR_SYSTEM_PROMPT } from "./prompts";
 import type { AgentResult, Turn } from "./types";
@@ -31,7 +31,7 @@ const evaluate = async (
     const parsed = parseJsonObject<EvaluatorResult>(raw);
     if (parsed?.status === "ready") {
       if (
-        !/^C[A-Z]{3}$/.test(parsed.icao) ||
+        !ICAO_RE.test(parsed.icao) ||
         typeof parsed.question !== "string" ||
         parsed.question.length > 500 ||
         !parsed.question.toUpperCase().includes(parsed.icao)

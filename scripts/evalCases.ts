@@ -155,6 +155,22 @@ const EVAL_CASES: EvalCase[] = [
   },
 
   {
+    id: "multi-icao-avgas-near-vancouver",
+    question: "Where can I find avgas near Vancouver?",
+    expected_behavior:
+      "The evaluator must infer several Vancouver-area aerodromes and check fuel availability across them — this is a multi-aerodrome question. " +
+      "The answer must confirm that CYVR (Vancouver International) has 100LL avgas. " +
+      "The answer must confirm that CYXX (Abbotsford) has 100LL avgas. " +
+      "The answer must confirm that CZBB (Boundary Bay) has 100LL avgas, available by truck or H24 cardlock. " +
+      "The answer must confirm that CYPK (Pitt Meadows) has 100LL avgas via Cardlock. " +
+      "An answer that only covers one aerodrome is incomplete. " +
+      "An answer that invents fuel availability for aerodromes not in the CFS is WRONG.",
+    ground_truth:
+      "CYVR: FUEL MG-1, 100LL, JA, JA-1. CYXX: FUEL MG-1, 100LL, JA, JA-1. CZBB: FUEL 100LL (truck or H24 cardlock), JA-1. CYPK: FUEL 100LL (Cardlock).",
+    tags: ["fuel", "multi-icao", "evaluator", "inference"],
+  },
+
+  {
     id: "evaluator-infer-vancouver",
     question: "What is the tower frequency at Vancouver airport?",
     expected_behavior:

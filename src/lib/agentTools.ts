@@ -1,7 +1,8 @@
 import type { Turn, VectorChunk } from "./types";
 import { parseJsonStringArray, runClaude } from "./utils/claudeUtils";
 
-const ICAO_RE_GLOBAL = /\bC[A-Z]{3}\b/g;
+const ICAO_RE = /^C[A-Z0-9]{3}$/;
+const ICAO_RE_GLOBAL = /\bC[A-Z0-9]{3}\b/g;
 
 const extractICAOCodes = (question: string): string[] =>
   [...question.toUpperCase().matchAll(ICAO_RE_GLOBAL)].map((m) => m[0]);
@@ -66,5 +67,6 @@ export {
   deduplicateChunksByPage,
   extractICAOCodes,
   formatHistoryForPrompt,
+  ICAO_RE,
   rephraseMultipleQueries,
 };
