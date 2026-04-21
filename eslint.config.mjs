@@ -5,6 +5,7 @@ import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactPlugin from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
+import unicorn from "eslint-plugin-unicorn";
 import prettier from "eslint-config-prettier";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
@@ -80,6 +81,15 @@ export default [
   {
     files: ["src/app/layout.tsx"],
     rules: { "no-restricted-syntax": "off" },
+  },
+
+  // Filenames — enforce camelCase for all source and script files
+  {
+    files: ["src/**/*.ts", "src/**/*.tsx", "scripts/**/*.ts", "scripts/**/*.mjs"],
+    plugins: { unicorn },
+    rules: {
+      "unicorn/filename-case": ["error", { case: "camelCase" }],
+    },
   },
 
   // Prettier — must be last to override conflicting formatting rules

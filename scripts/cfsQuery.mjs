@@ -4,9 +4,9 @@
  * Flow:
  *   1. Claude Code expands the user query into alternative phrasings
  *   2. All phrasings hit the vector DB in parallel for initial context
- *   3. Claude Code drives agentic RAG via Bash calls to cfs_search.mjs
+ *   3. Claude Code drives agentic RAG via Bash calls to cfsSearch.mjs
  *
- * Usage: node scripts/cfs_query.mjs "<question>"
+ * Usage: node scripts/cfsQuery.mjs "<question>"
  * Uses Claude Code's existing login session — no API key required.
  */
 
@@ -18,12 +18,12 @@ import { fileURLToPath } from "url";
 const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, "..");
-const searchScript = join(__dirname, "cfs_search.mjs");
+const searchScript = join(__dirname, "cfsSearch.mjs");
 const CLAUDE_BIN = "claude";
 
 const userQuery = process.argv.slice(2).join(" ").trim();
 if (!userQuery) {
-  console.error("Usage: node scripts/cfs_query.mjs <question>");
+  console.error("Usage: node scripts/cfsQuery.mjs <question>");
   process.exit(1);
 }
 

@@ -44,11 +44,11 @@ Pipeline in `src/lib/agentLoop.ts`:
 | `src/lib/types.ts`                     | Turn, TraceEvent, VectorChunk, AgentResult types                              |
 | `src/app/api/chat/route.ts`            | POST endpoint, streams NDJSON trace events                                    |
 | `src/app/page.tsx`                     | Chat UI                                                                       |
-| `src/app/components/AgentTrace.tsx`    | Collapsible trace panel                                                       |
-| `src/app/components/PDFPageViewer.tsx` | Canvas PDF renderer                                                           |
+| `src/app/components/agentTrace.tsx`    | Collapsible trace panel                                                       |
+| `src/app/components/pdfPageViewer.tsx` | Canvas PDF renderer                                                           |
 | `src/app/hooks/useAgentStream.ts`      | Client-side NDJSON stream consumer                                            |
-| `scripts/cfs_search.mjs`               | Vector search CLI (spawned per request)                                       |
-| `scripts/embed_chunks.mjs`             | One-time: chunks.json → LanceDB index                                         |
+| `scripts/cfsSearch.mjs`                | Vector search CLI (spawned per request)                                       |
+| `scripts/embedChunks.mjs`              | One-time: chunks.json → LanceDB index                                         |
 | `scripts/parse_cfs.py`                 | One-time: PDF → chunks.json (via docling)                                     |
 | `data/chunks.json`                     | ~1000 parsed aerodrome entries                                                |
 | `data/lancedb/`                        | Vector index                                                                  |

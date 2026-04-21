@@ -7,7 +7,7 @@
  *   2. pdftoppm renders the matching pages to PNG
  *   3. Claude Code reads the images via stream-json and answers
  *
- * Usage: node scripts/cfs_vision_query.mjs "<question>"
+ * Usage: node scripts/cfsVisionQuery.mjs "<question>"
  * Uses Claude Code's existing login session.
  */
 
@@ -29,7 +29,7 @@ const CLAUDE_BIN = "claude";
 const question = process.argv.slice(2).join(" ").trim();
 
 if (!question) {
-  console.error('Usage: node scripts/cfs_vision_query.mjs "<question>"');
+  console.error('Usage: node scripts/cfsVisionQuery.mjs "<question>"');
   process.exit(1);
 }
 

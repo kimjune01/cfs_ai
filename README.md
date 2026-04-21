@@ -73,10 +73,10 @@ cfs_ai/
 │   └── pdf.worker.mjs             # PDF.js worker
 ├── scripts/
 │   ├── parse_cfs.py               # PDF → chunks.json (run once)
-│   ├── embed_chunks.mjs           # chunks.json → LanceDB (run once)
-│   ├── cfs_search.mjs             # Vector search helper (called per request)
-│   ├── cfs_query.mjs              # Standalone agentic RAG script
-│   ├── cfs_vision_query.mjs       # Standalone vision pipeline script
+│   ├── embedChunks.mjs            # chunks.json → LanceDB (run once)
+│   ├── cfsSearch.mjs              # Vector search helper (called per request)
+│   ├── cfsQuery.mjs               # Standalone agentic RAG script
+│   ├── cfsVisionQuery.mjs         # Standalone vision pipeline script
 │   ├── eval.ts                    # LLM-as-judge eval runner
 │   └── evalCases.ts               # Golden Q&A test cases
 ├── data/
@@ -96,8 +96,8 @@ cfs_ai/
         ├── hooks/
         │   └── useAgentStream.ts  # Client-side stream consumer
         ├── components/
-        │   ├── AgentTrace.tsx     # Collapsible agent trace panel
-        │   └── PDFPageViewer.tsx  # PDF page renderer
+        │   ├── agentTrace.tsx     # Collapsible agent trace panel
+        │   └── pdfPageViewer.tsx  # PDF page renderer
         └── page.tsx               # Chat UI
 ```
 
@@ -125,7 +125,7 @@ cfs_ai/
 
    ```bash
    python scripts/parse_cfs.py
-   node scripts/embed_chunks.mjs
+   node scripts/embedChunks.mjs
    ```
 
 5. Start the dev server:

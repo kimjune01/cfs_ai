@@ -6,11 +6,11 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import type { TraceEvent, Turn } from "../lib/types";
-import AgentTrace from "./components/AgentTrace";
+import AgentTrace from "./components/agentTrace";
 import { useAgentStream } from "./hooks/useAgentStream";
 import { useTheme } from "./hooks/useTheme";
 
-const PDFPageViewer = dynamic(() => import("./components/PDFPageViewer"), {
+const PDFPageViewer = dynamic(() => import("./components/pdfPageViewer"), {
   ssr: false,
 });
 

@@ -2,7 +2,7 @@
  * CFS vector database search helper.
  * Called by Claude Code's Bash tool during agentic RAG.
  *
- * Usage: node scripts/cfs_search.mjs "<query>" [k]
+ * Usage: node scripts/cfsSearch.mjs "<query>" [k]
  * Output: formatted CFS chunks to stdout
  */
 
@@ -94,7 +94,7 @@ const query = args[0];
 const k = parseInt(args[1] ?? "5", 10);
 
 if (!query) {
-  console.error('Usage: node scripts/cfs_search.mjs "<query>" [k] [--json]');
+  console.error('Usage: node scripts/cfsSearch.mjs "<query>" [k] [--json]');
   process.exit(1);
 }
 
