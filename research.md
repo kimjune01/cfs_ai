@@ -19,10 +19,10 @@ Pilots ask questions like "What's the circuit altitude at CYVR?" and the app ret
 
 Pipeline in `src/lib/agentLoop.ts`:
 
-1. **Evaluator** — infers or validates ICAO code, rejects non-BC / off-topic questions, loops with clarifying questions until unambiguous. Hands off a synthesized self-contained question.
+1. **Evaluator** — infers or validates all ICAO codes (supports multi-aerodrome questions), rejects non-BC / off-topic questions, loops with clarifying questions until unambiguous. Hands off a synthesized self-contained question containing all resolved ICAOs.
 2. **Query rewriting** — Claude optimizes the resolved question for vector search
 3. **Vector search** — LanceDB ANN + ICAO keyword matching
-4. **Decision** — answers directly if results are sufficient; escalates to vision if results are ambiguous, field label doesn't match, or pilot is repeating/doubting a previous answer
+4. **Decision** — answers directly if results are sufficient; escalates to vision if results are ambiguous, field label doesn't match, pilot is repeating/doubting a previous answer, or the `pages` field is absent from the response
 5. **Vision escalation** — PDF pages rendered as images, Claude reads them for ground truth
 
 ## Key Files

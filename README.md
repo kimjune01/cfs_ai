@@ -16,6 +16,7 @@ User question
       ▼
  Evaluator (Claude — structured output)
  ├── No ICAO code?       ──► infer from name, or ask pilot to clarify
+ ├── Multiple aerodromes?──► extract all ICAO codes, synthesize multi-part question
  ├── Ambiguous airport?  ──► ask pilot to pick (e.g. Victoria → CYYJ or CYWH)
  ├── Outside BC?         ──► out_of_scope
  ├── Off-topic?          ──► out_of_scope
@@ -45,7 +46,7 @@ User question
  Answer + source pages rendered inline (PDF.js)
 ```
 
-**Evaluator** — the first stage in the pipeline. Resolves or infers the ICAO code, rejects out-of-scope questions (non-BC aerodromes, weather, NOTAMs), and loops with clarifying questions until the request is unambiguous. Hands off a synthesized, self-contained question downstream.
+**Evaluator** — the first stage in the pipeline. Resolves or infers all ICAO codes (supports multi-aerodrome questions), rejects out-of-scope questions (non-BC aerodromes, weather, NOTAMs), and loops with clarifying questions until the request is unambiguous. Hands off a synthesized, self-contained question downstream.
 
 **Decision** — runs after vector search with the retrieved chunks and conversation history. Answers directly if results are sufficient, or escalates to vision if confidence is low, the field label doesn't match, or the pilot is repeating/doubting a previous answer.
 
@@ -137,7 +138,7 @@ The app will be available at `http://localhost:3000`.
 
 ## Evals
 
-The eval suite runs 13 golden Q&A cases through the full agent pipeline and uses Claude as a judge to verify answer quality. Cases cover tower vs. MF frequency labeling, fuel availability, circuit altitudes, hallucination guards, and evaluator behaviour (ICAO inference, ambiguous names, out-of-scope requests).
+The eval suite runs 14 golden Q&A cases through the full agent pipeline and uses Claude as a judge to verify answer quality. Cases cover tower vs. MF frequency labeling, fuel availability, circuit altitudes, hallucination guards, and evaluator behaviour (ICAO inference, ambiguous names, out-of-scope requests).
 
 ```bash
 npm run eval                          # run all cases
