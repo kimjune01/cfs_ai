@@ -28,13 +28,13 @@ const FILTER_TAG = args.find((a) => a.startsWith("--filter="))?.split("=")[1];
 // ─── Judge ───────────────────────────────────────────────────────────────────
 
 interface JudgeResult {
-  verdict: "PASS" | "FAIL" | "ERROR";
-  reason: string;
-  fatal_error: string | null;
+    verdict: "PASS" | "FAIL" | "ERROR";
+    reason: string;
+    fatal_error: string | null;
 }
 
 const buildJudgePrompt = (evalCase: EvalCase, actualAnswer: string): string => {
-  return `You are an aviation accuracy judge evaluating an AI assistant's answer about the Canadian Flight Supplement (CFS).
+    return `You are an aviation accuracy judge evaluating an AI assistant's answer about the Canadian Flight Supplement (CFS).
 
 ## Test Case
 Question asked: "${evalCase.question}"
@@ -73,120 +73,125 @@ or:
 };
 
 const callJudge = (evalCase: EvalCase, actualAnswer: string): Promise<JudgeResult> => {
-  return new Promise((resolve) => {
-    const proc = spawn(
-      "claude",
-      ["--enable-auto-mode", "--print", "--output-format", "json", "--model", "sonnet"],
-      { stdio: ["pipe", "pipe", "pipe"], env: claudeEnv },
-    );
+    return new Promise((resolve) => {
+        const proc = spawn(
+            "claude",
+            ["--enable-auto-mode", "--print", "--output-format", "json", "--model", "sonnet"],
+            { stdio: ["pipe", "pipe", "pipe"], env: claudeEnv },
+        );
 
-    let stdout = "";
-    proc.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
-    proc.on("close", () => {
-      try {
-        const outer = JSON.parse(stdout) as { result: string };
-        const jsonStr = outer.result.match(/\{[\s\S]*\}/)?.[0];
-        if (!jsonStr) throw new Error("no JSON in judge output");
-        resolve(JSON.parse(jsonStr) as JudgeResult);
-      } catch {
-        resolve({
-          verdict: "ERROR",
-          reason: "Judge response could not be parsed",
-          fatal_error: stdout.slice(0, 200),
+        let stdout = "";
+        proc.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
+        proc.on("close", () => {
+            try {
+                const outer = JSON.parse(stdout) as { result: string };
+                const jsonStr = outer.result.match(/\{[\s\S]*\}/)?.[0];
+                if (!jsonStr) throw new Error("no JSON in judge output");
+                resolve(JSON.parse(jsonStr) as JudgeResult);
+            } catch {
+                resolve({
+                    verdict: "ERROR",
+                    reason: "Judge response could not be parsed",
+                    fatal_error: stdout.slice(0, 200),
+                });
+            }
         });
-      }
-    });
 
-    proc.stdin.write(buildJudgePrompt(evalCase, actualAnswer));
-    proc.stdin.end();
-  });
+        proc.stdin.write(buildJudgePrompt(evalCase, actualAnswer));
+        proc.stdin.end();
+    });
 };
 
 // ─── Runner ──────────────────────────────────────────────────────────────────
 
 interface CaseResult {
-  id: string;
-  verdict: "PASS" | "FAIL" | "ERROR" | "TIMEOUT";
-  reason: string;
-  fatal_error?: string | null;
-  actual?: string;
+    id: string;
+    verdict: "PASS" | "FAIL" | "ERROR" | "TIMEOUT";
+    reason: string;
+    fatal_error?: string | null;
+    actual?: string;
 }
 
 const runCase = async (evalCase: EvalCase): Promise<CaseResult> => {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-  let actualAnswer = "";
-  try {
-    const result = await runAgentLoop(evalCase.question, [] as Turn[], () => {}, controller.signal);
-    actualAnswer = result.answer;
-  } catch (e) {
-    if (controller.signal.aborted) {
-      return { id: evalCase.id, verdict: "TIMEOUT", reason: `Exceeded ${TIMEOUT_MS}ms` };
+    let actualAnswer = "";
+    try {
+        const result = await runAgentLoop(
+            evalCase.question,
+            [] as Turn[],
+            () => {},
+            controller.signal,
+        );
+        actualAnswer = result.answer;
+    } catch (e) {
+        if (controller.signal.aborted) {
+            return { id: evalCase.id, verdict: "TIMEOUT", reason: `Exceeded ${TIMEOUT_MS}ms` };
+        }
+        return {
+            id: evalCase.id,
+            verdict: "ERROR",
+            reason: `Pipeline threw: ${(e as Error).message}`,
+        };
+    } finally {
+        clearTimeout(timer);
     }
-    return {
-      id: evalCase.id,
-      verdict: "ERROR",
-      reason: `Pipeline threw: ${(e as Error).message}`,
-    };
-  } finally {
-    clearTimeout(timer);
-  }
 
-  const judgment = await callJudge(evalCase, actualAnswer);
-  return {
-    id: evalCase.id,
-    verdict: judgment.verdict,
-    reason: judgment.reason,
-    fatal_error: judgment.fatal_error,
-    actual: actualAnswer,
-  };
+    const judgment = await callJudge(evalCase, actualAnswer);
+    return {
+        id: evalCase.id,
+        verdict: judgment.verdict,
+        reason: judgment.reason,
+        fatal_error: judgment.fatal_error,
+        actual: actualAnswer,
+    };
 };
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 const main = async () => {
-  const cases = FILTER_TAG ? EVAL_CASES.filter((c) => c.tags?.includes(FILTER_TAG)) : EVAL_CASES;
+    const cases = FILTER_TAG ? EVAL_CASES.filter((c) => c.tags?.includes(FILTER_TAG)) : EVAL_CASES;
 
-  if (cases.length === 0) {
-    console.error(`No cases match filter: ${FILTER_TAG}`);
-    process.exit(1);
-  }
-
-  console.log(
-    `\nCFS/AI Eval — ${cases.length} case${cases.length > 1 ? "s" : ""}${FILTER_TAG ? ` [filter: ${FILTER_TAG}]` : ""}\n`,
-  );
-
-  const results: CaseResult[] = [];
-  for (const evalCase of cases) {
-    process.stdout.write(`  ${evalCase.id} ... `);
-    const result = await runCase(evalCase);
-    results.push(result);
-
-    const symbol = result.verdict === "PASS" ? "✓" : "✗";
-    console.log(`${symbol} ${result.verdict}`);
-
-    if (result.verdict !== "PASS") {
-      console.log(`    reason:  ${result.reason}`);
-      if (result.fatal_error) console.log(`    fatal:   ${result.fatal_error}`);
-      if (result.actual)
-        console.log(`    actual:  ${result.actual.slice(0, 200).replace(/\n/g, " ")}`);
+    if (cases.length === 0) {
+        console.error(`No cases match filter: ${FILTER_TAG}`);
+        process.exit(1);
     }
-  }
 
-  const passed = results.filter((r) => r.verdict === "PASS").length;
-  const failed = results.length - passed;
+    console.log(
+        `\nCFS/AI Eval — ${cases.length} case${cases.length > 1 ? "s" : ""}${FILTER_TAG ? ` [filter: ${FILTER_TAG}]` : ""}\n`,
+    );
 
-  console.log(`\n${passed}/${results.length} passed`);
+    const results: CaseResult[] = [];
+    for (const evalCase of cases) {
+        process.stdout.write(`  ${evalCase.id} ... `);
+        const result = await runCase(evalCase);
+        results.push(result);
 
-  if (failed > 0) {
-    const failedIds = results.filter((r) => r.verdict !== "PASS").map((r) => r.id);
-    console.log(`failed: ${failedIds.join(", ")}`);
-    process.exit(1);
-  }
+        const symbol = result.verdict === "PASS" ? "✓" : "✗";
+        console.log(`${symbol} ${result.verdict}`);
+
+        if (result.verdict !== "PASS") {
+            console.log(`    reason:  ${result.reason}`);
+            if (result.fatal_error) console.log(`    fatal:   ${result.fatal_error}`);
+            if (result.actual)
+                console.log(`    actual:  ${result.actual.slice(0, 200).replace(/\n/g, " ")}`);
+        }
+    }
+
+    const passed = results.filter((r) => r.verdict === "PASS").length;
+    const failed = results.length - passed;
+
+    console.log(`\n${passed}/${results.length} passed`);
+
+    if (failed > 0) {
+        const failedIds = results.filter((r) => r.verdict !== "PASS").map((r) => r.id);
+        console.log(`failed: ${failedIds.join(", ")}`);
+        process.exit(1);
+    }
 };
 
 main().catch((e) => {
-  console.error(e);
-  process.exit(1);
+    console.error(e);
+    process.exit(1);
 });

@@ -1,484 +1,484 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #f0f3f7;
-  --surface: #ffffff;
-  --surface-2: #e8ecf2;
-  --border: #d0d8e4;
-  --border-mid: #b8c4d4;
-  --accent-cyan: #0076a8;
-  --accent-amber: #b87200;
-  --accent-green: #007a47;
-  --text-primary: #111b28;
-  --text-muted: #4a6070;
-  --text-dim: #8a9db0;
+    --bg: #f0f3f7;
+    --surface: #ffffff;
+    --surface-2: #e8ecf2;
+    --border: #d0d8e4;
+    --border-mid: #b8c4d4;
+    --accent-cyan: #0076a8;
+    --accent-amber: #b87200;
+    --accent-green: #007a47;
+    --text-primary: #111b28;
+    --text-muted: #4a6070;
+    --text-dim: #8a9db0;
 }
 
 html.dark {
-  --bg: #0d1117;
-  --surface: #161b22;
-  --surface-2: #1c2330;
-  --border: #2a3441;
-  --border-mid: #3a4a5c;
-  --accent-cyan: #39c5f0;
-  --accent-amber: #e0a040;
-  --accent-green: #3dd68c;
-  --text-primary: #e6edf3;
-  --text-muted: #8b949e;
-  --text-dim: #4a5568;
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-2: #1c2330;
+    --border: #2a3441;
+    --border-mid: #3a4a5c;
+    --accent-cyan: #39c5f0;
+    --accent-amber: #e0a040;
+    --accent-green: #3dd68c;
+    --text-primary: #e6edf3;
+    --text-muted: #8b949e;
+    --text-dim: #4a5568;
 }
 
 @theme inline {
-  --color-background: var(--bg);
-  --color-foreground: var(--text-primary);
-  --font-sans: var(--font-jetbrains);
-  --font-mono: var(--font-jetbrains);
+    --color-background: var(--bg);
+    --color-foreground: var(--text-primary);
+    --font-sans: var(--font-jetbrains);
+    --font-mono: var(--font-jetbrains);
 }
 
 *,
 *::before,
 *::after {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 html,
 body {
-  height: 100%;
+    height: 100%;
 }
 
 body {
-  background: var(--bg);
-  color: var(--text-primary);
-  font-family: var(--font-jetbrains), "JetBrains Mono", monospace;
-  font-size: 14px;
-  line-height: 1.6;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--font-jetbrains), "JetBrains Mono", monospace;
+    font-size: 14px;
+    line-height: 1.6;
 }
 
 /* Dot grid atmosphere */
 body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background-image: radial-gradient(circle, #b8c4d4 1px, transparent 1px);
-  background-size: 28px 28px;
-  opacity: 0.45;
-  pointer-events: none;
-  z-index: 0;
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, #b8c4d4 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: 0.45;
+    pointer-events: none;
+    z-index: 0;
 }
 
 /* Vignette */
 body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(ellipse at center, transparent 40%, rgba(176, 192, 210, 0.25) 100%);
-  pointer-events: none;
-  z-index: 0;
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(176, 192, 210, 0.25) 100%);
+    pointer-events: none;
+    z-index: 0;
 }
 
 .font-display {
-  font-family: var(--font-barlow), "Barlow Condensed", sans-serif;
+    font-family: var(--font-barlow), "Barlow Condensed", sans-serif;
 }
 
 /* Placeholder */
 input::placeholder {
-  color: var(--text-muted);
-  opacity: 0.7;
+    color: var(--text-muted);
+    opacity: 0.7;
 }
 
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 4px;
+    width: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+    background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-mid);
-  border-radius: 2px;
-  opacity: 0.6;
+    background: var(--border-mid);
+    border-radius: 2px;
+    opacity: 0.6;
 }
 
 /* ── Animations ── */
 @keyframes pulse-label {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
 }
 
 @keyframes blink-cursor {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0;
+    }
 }
 
 @keyframes fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 @keyframes radar-sweep {
-  0% {
-    transform: scaleX(0);
-    transform-origin: left;
-    opacity: 0.9;
-  }
-  100% {
-    transform: scaleX(1);
-    transform-origin: left;
-    opacity: 0;
-  }
+    0% {
+        transform: scaleX(0);
+        transform-origin: left;
+        opacity: 0.9;
+    }
+    100% {
+        transform: scaleX(1);
+        transform-origin: left;
+        opacity: 0;
+    }
 }
 
 .msg-enter {
-  animation: fade-up 0.25s ease-out both;
+    animation: fade-up 0.25s ease-out both;
 }
 .blink {
-  animation: blink-cursor 1s step-end infinite;
+    animation: blink-cursor 1s step-end infinite;
 }
 .pulse-label {
-  animation: pulse-label 2s ease-in-out infinite;
+    animation: pulse-label 2s ease-in-out infinite;
 }
 
 /* ── Layout ── */
 .app-header {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
 }
 
 .header-accent-line {
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    var(--accent-cyan) 0%,
-    var(--accent-cyan) 15%,
-    transparent 60%
-  );
-  opacity: 0.35;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        var(--accent-cyan) 0%,
+        var(--accent-cyan) 15%,
+        transparent 60%
+    );
+    opacity: 0.35;
 }
 
 .input-bar {
-  background: var(--surface);
-  border-top: 1px solid var(--border);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
 }
 
 /* ── Header text ── */
 .header-title {
-  color: var(--accent-cyan);
-  letter-spacing: 0.15em;
+    color: var(--accent-cyan);
+    letter-spacing: 0.15em;
 }
 
 .header-sep {
-  color: var(--border-mid);
-  user-select: none;
+    color: var(--border-mid);
+    user-select: none;
 }
 
 .header-subtitle {
-  color: var(--text-muted);
-  letter-spacing: 0.14em;
+    color: var(--text-muted);
+    letter-spacing: 0.14em;
 }
 
 .header-tag {
-  color: var(--text-dim);
-  letter-spacing: 0.12em;
+    color: var(--text-dim);
+    letter-spacing: 0.12em;
 }
 
 /* ── Buttons ── */
 .btn-theme {
-  width: 60px;
-  border: 1px solid var(--border-mid);
-  color: var(--text-muted);
-  font-family: inherit;
-  cursor: pointer;
-  background: transparent;
-  letter-spacing: 0.12em;
-  transition:
-    border-color 0.15s,
-    color 0.15s;
+    width: 60px;
+    border: 1px solid var(--border-mid);
+    color: var(--text-muted);
+    font-family: inherit;
+    cursor: pointer;
+    background: transparent;
+    letter-spacing: 0.12em;
+    transition:
+        border-color 0.15s,
+        color 0.15s;
 }
 .btn-theme:hover {
-  border-color: var(--accent-cyan);
-  color: var(--accent-cyan);
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
 }
 
 .btn-abort {
-  background: transparent;
-  border: 1px solid var(--border-mid);
-  color: var(--text-muted);
-  font-family: inherit;
-  cursor: pointer;
-  letter-spacing: 0.14em;
-  transition:
-    border-color 0.15s,
-    color 0.15s;
+    background: transparent;
+    border: 1px solid var(--border-mid);
+    color: var(--text-muted);
+    font-family: inherit;
+    cursor: pointer;
+    letter-spacing: 0.14em;
+    transition:
+        border-color 0.15s,
+        color 0.15s;
 }
 .btn-abort:hover {
-  border-color: var(--accent-amber);
-  color: var(--accent-amber);
+    border-color: var(--accent-amber);
+    color: var(--accent-amber);
 }
 
 .btn-send {
-  background: var(--accent-cyan);
-  border: 1px solid var(--accent-cyan);
-  color: var(--bg);
-  font-family: inherit;
-  font-weight: 500;
-  cursor: pointer;
-  letter-spacing: 0.14em;
-  transition: all 0.15s;
+    background: var(--accent-cyan);
+    border: 1px solid var(--accent-cyan);
+    color: var(--bg);
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    letter-spacing: 0.14em;
+    transition: all 0.15s;
 }
 .btn-send:disabled {
-  background: transparent;
-  border-color: var(--border-mid);
-  color: var(--text-dim);
-  cursor: default;
+    background: transparent;
+    border-color: var(--border-mid);
+    color: var(--text-dim);
+    cursor: default;
 }
 
 .btn-sample {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-family: inherit;
-  cursor: pointer;
-  transition:
-    border-color 0.15s,
-    color 0.15s;
-  text-align: left;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: inherit;
+    cursor: pointer;
+    transition:
+        border-color 0.15s,
+        color 0.15s;
+    text-align: left;
 }
 .btn-sample:hover {
-  border-color: var(--accent-cyan);
-  color: var(--text-primary);
+    border-color: var(--accent-cyan);
+    color: var(--text-primary);
 }
 .btn-sample-arrow {
-  color: var(--accent-cyan);
-  margin-right: 8px;
+    color: var(--accent-cyan);
+    margin-right: 8px;
 }
 
 /* ── Input ── */
 .input-wrapper {
-  position: relative;
-  flex: 1;
+    position: relative;
+    flex: 1;
 }
 
 .input-prefix {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.75rem;
-  user-select: none;
-  color: var(--text-dim);
-  transition: color 0.15s;
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.75rem;
+    user-select: none;
+    color: var(--text-dim);
+    transition: color 0.15s;
 }
 .input-wrapper:focus-within .input-prefix {
-  color: var(--accent-cyan);
+    color: var(--accent-cyan);
 }
 
 .chat-input {
-  width: 100%;
-  padding: 10px 12px 10px 28px;
-  background: var(--bg);
-  border: 1px solid var(--border-mid);
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-family: inherit;
-  font-size: 0.875rem;
-  transition: border-color 0.15s;
+    width: 100%;
+    padding: 10px 12px 10px 28px;
+    background: var(--bg);
+    border: 1px solid var(--border-mid);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.875rem;
+    transition: border-color 0.15s;
 }
 .chat-input:focus {
-  outline: none;
-  border-color: var(--accent-cyan);
+    outline: none;
+    border-color: var(--accent-cyan);
 }
 
 /* ── Empty state ── */
 .empty-label {
-  color: var(--text-dim);
-  letter-spacing: 0.18em;
+    color: var(--text-dim);
+    letter-spacing: 0.18em;
 }
 .empty-subtitle {
-  color: var(--text-muted);
+    color: var(--text-muted);
 }
 
 /* ── Messages ── */
 .trace-indent {
-  padding-left: 2px;
+    padding-left: 2px;
 }
 
 .msg-user-wrap {
-  max-width: 80%;
+    max-width: 80%;
 }
 .msg-assistant-wrap {
-  max-width: 88%;
+    max-width: 88%;
 }
 
 .msg-label {
-  letter-spacing: 0.14em;
-  font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    font-size: 0.75rem;
 }
 .msg-label-pilot {
-  color: var(--text-dim);
+    color: var(--text-dim);
 }
 .msg-label-cfs {
-  color: var(--accent-cyan);
+    color: var(--accent-cyan);
 }
 
 .bubble-user {
-  background: var(--surface-2);
-  border: 1px solid var(--border-mid);
-  border-right: 2px solid var(--accent-cyan);
-  color: var(--text-primary);
+    background: var(--surface-2);
+    border: 1px solid var(--border-mid);
+    border-right: 2px solid var(--accent-cyan);
+    color: var(--text-primary);
 }
 
 .bubble-assistant {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left: 2px solid var(--accent-cyan);
-  color: var(--text-primary);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--accent-cyan);
+    color: var(--text-primary);
 }
 
 /* ── Loading state ── */
 .loading-label {
-  color: var(--accent-cyan);
-  letter-spacing: 0.14em;
+    color: var(--accent-cyan);
+    letter-spacing: 0.14em;
 }
 
 .loading-box {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left: 2px solid var(--accent-cyan);
-  color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--accent-cyan);
+    color: var(--text-muted);
 }
 
 .loading-arrow {
-  color: var(--accent-cyan);
-  margin-right: 6px;
+    color: var(--accent-cyan);
+    margin-right: 6px;
 }
 .loading-cursor {
-  margin-left: 2px;
-  color: var(--accent-cyan);
+    margin-left: 2px;
+    color: var(--accent-cyan);
 }
 
 /* ── Source pages ── */
 .source-pages {
-  border: 1px solid var(--border);
+    border: 1px solid var(--border);
 }
 .source-pages-header {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
 }
 .source-icon {
-  color: var(--accent-amber);
+    color: var(--accent-amber);
 }
 .source-label {
-  color: var(--text-muted);
-  letter-spacing: 0.12em;
+    color: var(--text-muted);
+    letter-spacing: 0.12em;
 }
 .source-page-divider {
-  border-top: 1px solid var(--border);
+    border-top: 1px solid var(--border);
 }
 
 /* ── Agent trace ── */
 .agent-trace {
-  font-size: 11px;
-  margin-top: 4px;
+    font-size: 11px;
+    margin-top: 4px;
 }
 .trace-summary {
-  color: var(--text-dim);
+    color: var(--text-dim);
 }
 .trace-toggle-icon {
-  line-height: 1;
+    line-height: 1;
 }
 .trace-label {
-  letter-spacing: 0.14em;
+    letter-spacing: 0.14em;
 }
 .trace-list {
-  border-left: 1px solid var(--border);
+    border-left: 1px solid var(--border);
 }
 .trace-item {
-  color: var(--text-muted);
+    color: var(--text-muted);
 }
 .trace-item-error {
-  color: var(--accent-amber);
+    color: var(--accent-amber);
 }
 .trace-step-num {
-  color: var(--accent-cyan);
-  opacity: 0.45;
-  min-width: 18px;
+    color: var(--accent-cyan);
+    opacity: 0.45;
+    min-width: 18px;
 }
 
 /* ── PDF viewer ── */
 .pdf-container {
-  background: var(--surface);
+    background: var(--surface);
 }
 .pdf-loading {
-  color: var(--text-muted);
+    color: var(--text-muted);
 }
 .pdf-loading-arrow {
-  color: var(--accent-cyan);
+    color: var(--accent-cyan);
 }
 .pdf-error {
-  color: var(--accent-amber);
-  font-family: inherit;
+    color: var(--accent-amber);
+    font-family: inherit;
 }
 
 /* ── Prose (markdown) ── */
 .prose-answer p {
-  margin: 0 0 0.6em;
+    margin: 0 0 0.6em;
 }
 .prose-answer p:last-child {
-  margin-bottom: 0;
+    margin-bottom: 0;
 }
 .prose-answer strong {
-  color: var(--text-primary);
-  font-weight: 600;
+    color: var(--text-primary);
+    font-weight: 600;
 }
 .prose-answer ul,
 .prose-answer ol {
-  margin: 0.4em 0 0.6em 1.2em;
-  padding: 0;
+    margin: 0.4em 0 0.6em 1.2em;
+    padding: 0;
 }
 .prose-answer li {
-  margin-bottom: 0.25em;
+    margin-bottom: 0.25em;
 }
 .prose-answer code {
-  font-family: inherit;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 0 4px;
-  font-size: 0.9em;
+    font-family: inherit;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0 4px;
+    font-size: 0.9em;
 }
 .prose-answer table {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 0.5em 0 0.75em;
-  font-size: 0.85em;
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.5em 0 0.75em;
+    font-size: 0.85em;
 }
 .prose-answer th,
 .prose-answer td {
-  border: 1px solid var(--border);
-  padding: 5px 10px;
-  text-align: left;
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    text-align: left;
 }
 .prose-answer th {
-  background: var(--surface-2);
-  color: var(--text-muted);
-  font-weight: 600;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-weight: 600;
 }
 .prose-answer tr:nth-child(even) td {
-  background: var(--surface-2);
+    background: var(--surface-2);
 }

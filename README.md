@@ -106,33 +106,33 @@ cfs_ai/
 
 1. Install dependencies:
 
-   ```bash
-   npm install
-   ```
+    ```bash
+    npm install
+    ```
 
 2. Log in to Claude Code (required — the app uses keychain auth, not an API key):
 
-   ```bash
-   claude login
-   ```
+    ```bash
+    claude login
+    ```
 
 3. Install poppler (required for `pdftotext` and `pdftoppm`):
 
-   ```bash
-   brew install poppler
-   ```
+    ```bash
+    brew install poppler
+    ```
 
 4. Obtain a copy of the CFS PDF from NavCanada and place it at `public/CFS.pdf`. Then generate the vector index:
 
-   ```bash
-   python scripts/parse_cfs.py
-   node scripts/embedChunks.mjs
-   ```
+    ```bash
+    python scripts/parse_cfs.py
+    node scripts/embedChunks.mjs
+    ```
 
 5. Start the dev server:
-   ```bash
-   npm run dev
-   ```
+    ```bash
+    npm run dev
+    ```
 
 The app will be available at `http://localhost:3000`.
 

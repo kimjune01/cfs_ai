@@ -7,9 +7,9 @@ const { ANTHROPIC_API_KEY: _key, ...env } = process.env;
 const claudeEnv = env;
 
 const attachAbort = (proc: ReturnType<typeof spawn>, signal: AbortSignal): void => {
-  const onAbort = () => proc.kill();
-  signal.addEventListener("abort", onAbort);
-  proc.on("close", () => signal.removeEventListener("abort", onAbort));
+    const onAbort = () => proc.kill();
+    signal.addEventListener("abort", onAbort);
+    proc.on("close", () => signal.removeEventListener("abort", onAbort));
 };
 
 export { attachAbort, CLAUDE_BIN, claudeEnv };
