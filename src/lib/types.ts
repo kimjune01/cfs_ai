@@ -6,7 +6,7 @@ type Turn = {
 
 type TraceEvent =
   | { type: "evaluating" } // 1. evaluator runs
-  | { type: "clarification"; question: string } // 1a. evaluator needs more info
+  | { type: "clarification"; questions: string[] } // 1a. evaluator needs more info
   | { type: "rephrasing" } // 2. query rewriting
   | { type: "vector_search"; query: string } // 3. one per rephrase query
   | { type: "vector_results"; count: number; topScore: number } // 3a. results back

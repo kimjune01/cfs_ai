@@ -68,12 +68,14 @@ const renderPages = async (pageNums: number[]): Promise<{ pageNum: number; b64: 
   }
 };
 
-// Parse "Source: CFS page N" or "Source: CFS pages N, M" from Claude output
 const parseSourceCitation = (
   text: string,
   fallback: number[],
 ): { answer: string; pages: number[] } => {
   const match = text.match(/\nSource:\s*CFS\s+pages?\s+([\d,\s]+)\s*$/i);
+  if (!match) {
+    console.warn("Vision response missing source citation:", text.slice(-150));
+  }
   return {
     pages: match
       ? match[1]

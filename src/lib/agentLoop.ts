@@ -19,15 +19,14 @@ type Decision = { action: "answer"; text: string; sourcePages: number[] } | { ac
 
 const truncateHistory = (history: Turn[]): Turn[] => history.slice(-MAX_HISTORY_TURNS);
 
-const parseDecision = (raw: string, chunks: VectorChunk[]): Decision => {
+const parseDecision = (raw: string): Decision => {
   const parsed = parseJsonObject<{ action: string; text?: string; pages?: number[] }>(raw);
   if (!parsed || parsed.action !== "answer" || !parsed.text) {
     if (!parsed) console.warn("Decision parse failed, escalating to vision:", raw.slice(0, 200));
     return { action: "vision" };
   }
-  const vectorPages = [...new Set(chunks.map((c) => c.page))].sort((a, b) => a - b);
-  const sourcePages = parsed.pages?.length ? parsed.pages : vectorPages;
-  return { action: "answer", text: parsed.text, sourcePages };
+  if (!parsed.pages?.length) return { action: "vision" };
+  return { action: "answer", text: parsed.text, sourcePages: parsed.pages };
 };
 
 type VectorSearchResult = {
@@ -60,7 +59,7 @@ const runDecision = async (
     signal,
     DECISION_PROMPT,
   );
-  const decision = parseDecision(raw, chunks);
+  const decision = parseDecision(raw);
   emit({ type: "decision", action: decision.action });
   if (decision.action === "answer") emit({ type: "synthesize" });
   return decision;
