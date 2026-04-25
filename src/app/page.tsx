@@ -50,20 +50,29 @@ const Home = () => {
         setMessages((prev) => [...prev, { role: "user", content: question }]);
 
         const { answer, sourcePages, traceEvents } = await send(question, history);
-        if (!answer) return;
+
+        if (!answer && traceEvents.length === 0) return;
+
+        const errorEvent = traceEvents.find(
+            (e): e is Extract<TraceEvent, { type: "error" }> => e.type === "error",
+        );
+        const displayAnswer =
+            answer || errorEvent?.message || "Something went wrong. Please try again.";
 
         setMessages((prev) => [
             ...prev,
-            { role: "assistant", content: answer, sourcePages, traceEvents },
+            { role: "assistant", content: displayAnswer, sourcePages, traceEvents },
         ]);
 
-        setHistory((prev) =>
-            [
-                ...prev,
-                { role: "user" as const, content: question },
-                { role: "assistant" as const, content: answer, pagesFound: sourcePages },
-            ].slice(-20),
-        );
+        if (answer) {
+            setHistory((prev) =>
+                [
+                    ...prev,
+                    { role: "user" as const, content: question },
+                    { role: "assistant" as const, content: answer, pagesFound: sourcePages },
+                ].slice(-20),
+            );
+        }
     };
 
     const handleSubmit = (e: React.FormEvent) => {

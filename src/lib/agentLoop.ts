@@ -5,7 +5,7 @@ import {
     rephraseMultipleQueries,
 } from "./agentTools";
 import { emit, runWithEmit } from "./emitContext";
-import { runEvaluationGate } from "./evaluator";
+import { runEvaluationGate } from "./promptEvaluator";
 import { DECISION_PROMPT } from "./prompts";
 import type { AgentResult, EmitFn, Turn, VectorChunk } from "./types";
 import { runClaude } from "./utils/claudeUtils";

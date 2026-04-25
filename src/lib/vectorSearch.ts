@@ -5,7 +5,7 @@ import { emit } from "./emitContext";
 import type { VectorChunk } from "./types";
 import { attachAbort } from "./utils/processUtils";
 
-const CFS_SEARCH = join(process.cwd(), "scripts", "cfsSearch.mjs");
+const CFS_SEARCH = join(process.cwd(), "scripts", "cfsVectorSearch.mjs");
 
 const vectorSearch = async (
     query: string,
@@ -14,7 +14,7 @@ const vectorSearch = async (
     emit({ type: "vector_search", query });
 
     const result = await new Promise<string>((resolve, reject) => {
-        const proc = spawn("node", [CFS_SEARCH, query, "6", "--json"], {
+        const proc = spawn("node", [CFS_SEARCH, query, "10", "--json"], {
             stdio: ["pipe", "pipe", "pipe"],
         });
 
@@ -38,7 +38,12 @@ const vectorSearch = async (
         if (Array.isArray(raw)) {
             const candidates = raw as VectorChunk[];
             if (
-                candidates.every((c) => typeof c.page === "number" && typeof c.score === "number")
+                candidates.every(
+                    (c) =>
+                        typeof c.startPage === "number" &&
+                        typeof c.endPage === "number" &&
+                        typeof c.score === "number",
+                )
             ) {
                 chunks = candidates;
             }

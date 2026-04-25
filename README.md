@@ -27,8 +27,8 @@ User question
  └── Rewrites the question into a precise vector search query
       │
       ▼
- Vector search (LanceDB + all-MiniLM-L6-v2)
- └── Hybrid: ICAO keyword match + semantic ANN
+ Vector search (LanceDB + jina-embeddings-v2-base-en)
+ └── Hybrid: BM25 full-text + semantic ANN, union by chunk id
       │
       ▼
  Decision (Claude)
@@ -54,16 +54,16 @@ User question
 
 ## Tech stack
 
-| Layer                  | Tool                                                |
-| ---------------------- | --------------------------------------------------- |
-| Web framework          | Next.js 16 (App Router)                             |
-| UI                     | React + Tailwind CSS                                |
-| Embedding model        | `Xenova/all-MiniLM-L6-v2` via Transformers.js       |
-| Vector database        | LanceDB                                             |
-| Language model         | Claude Sonnet (via Claude Code CLI — keychain auth) |
-| PDF text search        | `pdftotext` (poppler)                               |
-| PDF rendering — server | `pdftoppm` (poppler)                                |
-| PDF rendering — client | PDF.js                                              |
+| Layer                  | Tool                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| Web framework          | Next.js 16 (App Router)                                                               |
+| UI                     | React + Tailwind CSS                                                                  |
+| Embedding model        | `jinaai/jina-embeddings-v2-base-en` (index: HuggingFace; search: `Xenova/` ONNX port) |
+| Vector database        | LanceDB                                                                               |
+| Language model         | Claude Sonnet (via Claude Code CLI — keychain auth)                                   |
+| PDF text search        | `pdftotext` (poppler)                                                                 |
+| PDF rendering — server | `pdftoppm` (poppler)                                                                  |
+| PDF rendering — client | PDF.js                                                                                |
 
 ## Project structure
 
@@ -73,10 +73,9 @@ cfs_ai/
 │   ├── CFS.pdf                    # Source document
 │   └── pdf.worker.mjs             # PDF.js worker
 ├── scripts/
-│   ├── parse_cfs.py               # PDF → chunks.json (run once)
-│   ├── embedChunks.mjs            # chunks.json → LanceDB (run once)
-│   ├── cfsSearch.mjs              # Vector search helper (called per request)
-│   ├── cfsQuery.mjs               # Standalone agentic RAG script
+│   ├── liteParse.mjs              # PDF → data/parsed.json (run once)
+│   ├── lateChunkEmbed.py          # parsed.json → LanceDB (run once)
+│   ├── cfsVectorSearch.mjs        # Vector search CLI — hybrid BM25 + ANN (called per request)
 │   ├── cfsVisionQuery.mjs         # Standalone vision pipeline script
 │   ├── eval.ts                    # LLM-as-judge eval runner
 │   └── evalCases.ts               # Golden Q&A test cases
@@ -90,7 +89,7 @@ cfs_ai/
     │   ├── agentTools.ts          # PDF utilities + Claude runner
     │   ├── vectorSearch.ts        # LanceDB hybrid search
     │   ├── visionSearch.ts        # PDF vision pipeline
-    │   ├── evaluator.ts           # Question evaluator (ICAO inference, scope check)
+    │   ├── promptEvaluator.ts     # Question evaluator (ICAO inference, scope check)
     │   └── agentLoop.ts           # Agent orchestration
     └── app/
         ├── api/chat/route.ts      # Streaming NDJSON endpoint
@@ -108,7 +107,10 @@ cfs_ai/
 
     ```bash
     npm install
+    uv sync
     ```
+
+    `npm install` handles JS dependencies. `uv sync` creates a `.venv/` and installs Python dependencies from `pyproject.toml`. Install `uv` first if needed: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
 2. Log in to Claude Code (required — the app uses keychain auth, not an API key):
 
@@ -125,8 +127,8 @@ cfs_ai/
 4. Obtain a copy of the CFS PDF from NavCanada and place it at `public/CFS.pdf`. Then generate the vector index:
 
     ```bash
-    python scripts/parse_cfs.py
-    node scripts/embedChunks.mjs
+    node scripts/liteParse.mjs
+    uv run python scripts/lateChunkEmbed.py
     ```
 
 5. Start the dev server:

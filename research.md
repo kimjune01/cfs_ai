@@ -11,9 +11,10 @@ Pilots ask questions like "What's the circuit altitude at CYVR?" and the app ret
 | Framework    | Next.js (App Router) + React 19, TypeScript       |
 | Styling      | Tailwind CSS 4                                    |
 | LLM          | Claude Sonnet via Claude Code CLI (keychain auth) |
-| Vector DB    | LanceDB + Transformers.js (all-MiniLM-L6-v2)      |
+| Vector DB    | LanceDB + jina-embeddings-v2-base-en              |
 | PDF (client) | PDF.js                                            |
 | PDF (server) | Poppler (pdftotext, pdftoppm)                     |
+| Python       | uv (pyproject.toml + uv.lock, .venv isolated)     |
 
 ## Core Architecture — Hybrid Agentic RAG
 
@@ -21,7 +22,7 @@ Pipeline in `src/lib/agentLoop.ts`:
 
 1. **Evaluator** — infers or validates all ICAO codes (supports multi-aerodrome questions), rejects non-BC / off-topic questions, loops with clarifying questions until unambiguous. Hands off a synthesized self-contained question containing all resolved ICAOs.
 2. **Query rewriting** — Claude optimizes the resolved question for vector search
-3. **Vector search** — LanceDB ANN + ICAO keyword matching
+3. **Vector search** — LanceDB hybrid BM25 full-text + ANN, union by chunk id
 4. **Decision** — answers directly if results are sufficient; escalates to vision if results are ambiguous, field label doesn't match, pilot is repeating/doubting a previous answer, or the `pages` field is absent from the response
 5. **Vision escalation** — PDF pages rendered as images, Claude reads them for ground truth
 
@@ -30,7 +31,7 @@ Pipeline in `src/lib/agentLoop.ts`:
 | File                                   | Role                                                                          |
 | -------------------------------------- | ----------------------------------------------------------------------------- |
 | `src/lib/agentLoop.ts`                 | Pipeline orchestration: `runVectorSearch`, `runDecision`, `runVisionSearch`   |
-| `src/lib/evaluator.ts`                 | ICAO inference, BC scope check, clarification loop                            |
+| `src/lib/promptEvaluator.ts`           | ICAO inference, BC scope check, clarification loop                            |
 | `src/lib/prompts.ts`                   | All Claude system prompts (evaluator, decision, vision)                       |
 | `src/lib/agentTools.ts`                | Query logic: ICAO extraction, search term rephrasing, vector formatting       |
 | `src/lib/vectorSearch.ts`              | LanceDB hybrid search subprocess wrapper                                      |
@@ -47,17 +48,18 @@ Pipeline in `src/lib/agentLoop.ts`:
 | `src/app/components/agentTrace.tsx`    | Collapsible trace panel                                                       |
 | `src/app/components/pdfPageViewer.tsx` | Canvas PDF renderer                                                           |
 | `src/app/hooks/useAgentStream.ts`      | Client-side NDJSON stream consumer                                            |
-| `scripts/cfsSearch.mjs`                | Vector search CLI (spawned per request)                                       |
-| `scripts/embedChunks.mjs`              | One-time: chunks.json → LanceDB index                                         |
-| `scripts/parse_cfs.py`                 | One-time: PDF → chunks.json (via docling)                                     |
+| `scripts/cfsVectorSearch.mjs`          | Vector search CLI — hybrid BM25 + ANN, spawned per request                    |
+| `scripts/liteParse.mjs`                | One-time: CFS.pdf → data/parsed.json (via LiteParse)                          |
+| `scripts/lateChunkEmbed.py`            | One-time: parsed.json → LanceDB index (Jina v2, late chunking)                |
 | `data/chunks.json`                     | ~1000 parsed aerodrome entries                                                |
 | `data/lancedb/`                        | Vector index                                                                  |
 | `public/CFS.pdf`                       | Source NavCanada CFS document                                                 |
 
 ## Notable Patterns
 
-- **Canadian ICAO codes include digits** — e.g. `CAJ4`, `CBP3` (32 of 61 aerodromes in the index). Regexes must use `C[A-Z0-9]{3}`, not `C[A-Z]{3}`. This affects `agentTools.ts` (`ICAO_RE`, `ICAO_RE_GLOBAL`) and `cfsSearch.mjs` (`extractIcaoCodes`, `extractAbbreviations`).
-- Claude invoked via **subprocess spawn** (not SDK) — forces macOS keychain OAuth, `ANTHROPIC_API_KEY` stripped from subprocess env. 60s timeout, 1 retry on transient failure.
+- **Canadian ICAO codes include digits** — e.g. `CAJ4`, `CBP3` (32 of 61 aerodromes in the index). Regexes must use `C[A-Z0-9]{3}`, not `C[A-Z]{3}`. This affects `agentTools.ts` (`ICAO_RE`, `ICAO_RE_GLOBAL`).
+- Claude invoked via **subprocess spawn** (not SDK) — forces macOS keychain OAuth, `ANTHROPIC_API_KEY` stripped from subprocess env. 60s timeout, 1 retry on transient failure. `@anthropic-ai/sdk` and `@anthropic-ai/claude-code` are intentionally absent from dependencies.
+- **Union hybrid search** — `cfsVectorSearch.mjs` runs vector ANN and BM25 passes independently (k=10 each), unions by chunk id keeping max score, sorts descending. BM25 hits get a fixed score of 0.5 (below typical vector scores of ~0.75) so they appear after vector results but are always included. Avoids RRF, which penalises chunks that rank well in BM25 but poorly in vector search.
 - **Emit context** — `AsyncLocalStorage` stores the emit function per request; pipeline modules import `emit` directly instead of receiving it as a parameter
 - **Streaming NDJSON** — client sees real-time trace events (`evaluating`, `vector_search`, `deciding`, `decision`, `vision_search`, `vision_reading`, `synthesize`, `done`)
 - **Markdown rendering** — answers rendered via `react-markdown` + `remark-gfm` (tables, bold, lists)

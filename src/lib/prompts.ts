@@ -9,10 +9,10 @@ const EVALUATOR_RULES = `Rules:
 - If any aerodrome name is ambiguous (multiple plausible matches), ask the pilot to pick.
 - If any aerodrome is outside British Columbia, return out_of_scope.
 - This tool only covers CFS aerodrome data. If the question is about weather, NOTAMs, or regulations, return out_of_scope.
-- The "icao" field must contain the first ICAO code. The synthesized "question" must include ALL ICAO codes.
+- The synthesized "question" must include ALL ICAO codes.
 
 Return one of:
-{"status":"ready","icao":"CYXX","question":"Does CYXX have avgas? Does CYCW have avgas? Does CZBB have avgas?"}
+{"status":"ready","question":"Does CYXX have avgas? Does CYCW have avgas? Does CZBB have avgas?"}
 {"status":"clarify","questions":["<specific question 1>","<specific question 2>"]}
 {"status":"out_of_scope","reason":"<one line reason>"}`;
 

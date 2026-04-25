@@ -21,9 +21,8 @@ type TraceEvent =
 type EmitFn = (event: TraceEvent) => void;
 
 type VectorChunk = {
-    page: number;
-    icao: string;
-    section: string;
+    startPage: number;
+    endPage: number;
     text: string;
     score: number;
 };
