@@ -25,21 +25,38 @@ _BOILERPLATE = re.compile(
     r"^(british\s+columbia(\s+aerodrome/facility\s+directory)?|aerodrome/facility\s+directory)$",
     re.IGNORECASE,
 )
+_BOILERPLATE_PREFIX = re.compile(
+    r"^(british\s+columbia\s+aerodrome/facility\s+directory|aerodrome/facility\s+directory)\s+",
+    re.IGNORECASE,
+)
+
+
+def _title_candidate(line: str) -> str:
+    """Normalize a line (strip heading markers and bold) and remove boilerplate."""
+    norm = re.sub(r"^#{1,3}\s+", "", line)
+    norm = re.sub(r"\*\*", "", norm).strip()
+    if not norm or norm.startswith("<") or norm.startswith("![") or norm.startswith("<!--"):
+        return ""
+    # Exact boilerplate → skip
+    if _BOILERPLATE.match(norm):
+        return ""
+    # Boilerplate prefix with real content after → strip prefix and return remainder
+    return _BOILERPLATE_PREFIX.sub("", norm).strip() or norm
 
 
 def extract_page_title(text: str) -> str:
     lines = [l.strip() for l in text.splitlines()]
+    # Pass 1: prefer ## / ### headings
     for line in lines:
-        if m := re.match(r"^#{1,3}\s+(.+)", line):
-            return m.group(1).strip()
-    for line in lines:
-        if line.startswith("**") and line.endswith("**"):
-            return re.sub(r"\*\*", "", line).strip()
+        if re.match(r"^#{1,3}\s+", line):
+            if t := _title_candidate(line):
+                return t
+    # Pass 2: any remaining line
     for line in lines:
         if not line or line.startswith("<!--") or line.startswith("<") or line.startswith("!["):
             continue
-        if not _BOILERPLATE.match(line):
-            return line
+        if t := _title_candidate(line):
+            return t
     return ""
 
 

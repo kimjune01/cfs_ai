@@ -77,7 +77,7 @@ cfs_ai/
 │   ├── build/
 │   │   ├── llamaParse.mjs              # CFS.pdf → data/parsed_llama.md (LlamaParse cloud)
 │   │   ├── preprocess.py               # parsed_llama.md → parsed_llama_preprocessed.md
-│   │   ├── chunkEmbed.py               # preprocessed.md → data/embeddings.json (Jina v4 API)
+│   │   ├── chunkEmbed.py               # preprocessed.md → data/embeddings.json (Jina v4 API, title-prefixed chunks)
 │   │   ├── buildIndex.py               # embeddings.json → data/lancedb/
 │   │   └── liteParse.mjs               # Alternative: CFS.pdf → data/parsed.json
 │   ├── runtime/
