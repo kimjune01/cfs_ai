@@ -88,7 +88,6 @@ def embed_batch(chunks: list[Chunk], api_key: str) -> list[list[float]]:
             json={
                 "model": API_MODEL,
                 "task": "retrieval.passage",
-                "late_chunking": True,
                 "normalized": True,
                 "input": [c.text for c in chunks],
             },
@@ -99,6 +98,8 @@ def embed_batch(chunks: list[Chunk], api_key: str) -> list[list[float]]:
             print(f"    rate limited, waiting {wait}s...", file=sys.stderr)
             time.sleep(wait)
             continue
+        if not resp.ok:
+            print(f"    API error {resp.status_code}: {resp.text[:500]}", file=sys.stderr)
         resp.raise_for_status()
         data = resp.json()["data"]
         data.sort(key=lambda x: x["index"])
