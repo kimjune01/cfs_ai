@@ -1,15 +1,21 @@
 /**
  * Generic LanceDB vector search CLI.
  *
- * Usage: node scripts/cfsVectorSearch.mjs "<query>" [k] [--json] [--db <path>] [--table <name>] [--model <id>]
+ * Usage: node scripts/cfsVectorSearch.mjs "<query>" [k] [--json] [--db <path>] [--table <name>]
+ * Requires: JINA_API_KEY env var
  */
 
-import { pipeline } from "@xenova/transformers";
 import * as lancedb from "@lancedb/lancedb";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+const JINA_API_KEY = process.env.JINA_API_KEY;
+if (!JINA_API_KEY) {
+    console.error("JINA_API_KEY is not set");
+    process.exit(1);
+}
 
 const DEFAULT_K = 5;
 
@@ -33,25 +39,43 @@ for (let i = 0; i < rawArgs.length; i++) {
 
 const dbPath = getFlag("db") ?? join(__dirname, "../../data/lancedb");
 const tableName = getFlag("table") ?? "cfs";
-const modelId = getFlag("model") ?? "Xenova/jina-embeddings-v2-base-en";
 
 const query = args[0];
 const k = parseInt(args[1] ?? String(DEFAULT_K), 10);
 
 if (!query) {
     console.error(
-        'Usage: node scripts/cfsVectorSearch.mjs "<query>" [k] [--json] [--db <path>] [--table <name>] [--model <id>]',
+        'Usage: node scripts/runtime/cfsVectorSearch.mjs "<query>" [k] [--json] [--db <path>] [--table <name>]',
     );
     process.exit(1);
 }
 
+async function embedQuery(text) {
+    const resp = await fetch("https://api.jina.ai/v1/embeddings", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${JINA_API_KEY}`,
+        },
+        body: JSON.stringify({
+            model: "jina-embeddings-v4",
+            task: "retrieval.query",
+            normalized: true,
+            input: [{ text }],
+        }),
+    });
+    if (!resp.ok) {
+        const body = await resp.text();
+        throw new Error(`Jina API error ${resp.status}: ${body.slice(0, 200)}`);
+    }
+    const data = await resp.json();
+    return data.data[0].embedding;
+}
+
 async function search(query, k) {
-    const embedder = await pipeline("feature-extraction", modelId);
+    const queryVec = await embedQuery(query);
     const db = await lancedb.connect(dbPath);
     const table = await db.openTable(tableName);
-
-    const output = await embedder(query, { pooling: "mean", normalize: true });
-    const queryVec = Array.from(output.data);
 
     const rows = await table.search(queryVec).limit(k).toArray();
     return rows

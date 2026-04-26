@@ -11,7 +11,7 @@ Pilots ask questions like "What's the circuit altitude at CYVR?" and the app ret
 | Framework    | Next.js (App Router) + React 19, TypeScript       |
 | Styling      | Tailwind CSS 4                                    |
 | LLM          | Claude Sonnet via Claude Code CLI (keychain auth) |
-| Vector DB    | LanceDB + jina-embeddings-v2-base-en              |
+| Vector DB    | LanceDB + jina-embeddings-v4                      |
 | PDF (client) | PDF.js                                            |
 | PDF (server) | Poppler (pdftotext, pdftoppm)                     |
 | Python       | uv (pyproject.toml + uv.lock, .venv isolated)     |
@@ -50,7 +50,7 @@ Pipeline in `src/lib/agentLoop.ts`:
 | `src/app/hooks/useAgentStream.ts`      | Client-side NDJSON stream consumer                                            |
 | `scripts/cfsVectorSearch.mjs`          | Vector search CLI — hybrid BM25 + ANN, spawned per request                    |
 | `scripts/liteParse.mjs`                | One-time: CFS.pdf → data/parsed.json (via LiteParse)                          |
-| `scripts/lateChunkEmbed.py`            | One-time: parsed.json → LanceDB index (Jina v2, late chunking)                |
+| `scripts/build/lateChunkEmbedCloud.py` | One-time: markdown → embeddings.json (Jina v4 API, late chunking)             |
 | `data/chunks.json`                     | ~1000 parsed aerodrome entries                                                |
 | `data/lancedb/`                        | Vector index                                                                  |
 | `public/CFS.pdf`                       | Source NavCanada CFS document                                                 |
@@ -59,6 +59,7 @@ Pipeline in `src/lib/agentLoop.ts`:
 
 - **Canadian ICAO codes include digits** — e.g. `CAJ4`, `CBP3` (32 of 61 aerodromes in the index). Regexes must use `C[A-Z0-9]{3}`, not `C[A-Z]{3}`. This affects `agentTools.ts` (`ICAO_RE`, `ICAO_RE_GLOBAL`).
 - Claude invoked via **subprocess spawn** (not SDK) — forces macOS keychain OAuth, `ANTHROPIC_API_KEY` stripped from subprocess env. 60s timeout, 1 retry on transient failure. `@anthropic-ai/sdk` and `@anthropic-ai/claude-code` are intentionally absent from dependencies.
+- **Runtime query embedding** — `cfsVectorSearch.mjs` calls the Jina REST API (`jina-embeddings-v4`, `task: retrieval.query`) to embed the query. `JINA_API_KEY` must be set in the server environment; the script exits immediately if it is absent.
 - **Union hybrid search** — `cfsVectorSearch.mjs` runs vector ANN and BM25 passes independently (k=10 each), unions by chunk id keeping max score, sorts descending. BM25 hits get a fixed score of 0.5 (below typical vector scores of ~0.75) so they appear after vector results but are always included. Avoids RRF, which penalises chunks that rank well in BM25 but poorly in vector search.
 - **Emit context** — `AsyncLocalStorage` stores the emit function per request; pipeline modules import `emit` directly instead of receiving it as a parameter
 - **Streaming NDJSON** — client sees real-time trace events (`evaluating`, `vector_search`, `deciding`, `decision`, `vision_search`, `vision_reading`, `synthesize`, `done`)

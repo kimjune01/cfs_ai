@@ -11,10 +11,10 @@ from pathlib import Path
 import requests
 from transformers import AutoTokenizer
 
-HF_MODEL = "jinaai/jina-embeddings-v2-base-en"   # tokenizer
-API_MODEL = "jina-embeddings-v2-base-en"          # Jina API
+HF_MODEL = "jinaai/jina-embeddings-v4"   # tokenizer
+API_MODEL = "jina-embeddings-v4"          # Jina API
 CHUNK_SIZE = 128
-MAX_TOKENS = 8192
+MAX_TOKENS = 32768
 
 DATA = Path(__file__).parents[2] / "data"
 DEFAULT_INPUT = DATA / "parsed_llama_preprocessed.md"
@@ -87,6 +87,7 @@ def embed_batch(chunks: list[Chunk], api_key: str) -> list[list[float]]:
             headers={"Authorization": f"Bearer {api_key}"},
             json={
                 "model": API_MODEL,
+                "task": "retrieval.passage",
                 "late_chunking": True,
                 "normalized": True,
                 "input": [c.text for c in chunks],
