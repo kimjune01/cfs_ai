@@ -13,11 +13,8 @@
     },
     "dependencies": {
         "@lancedb/lancedb": "^0.27.2",
-        "@llamaindex/core": "^0.6.22",
         "@llamaindex/liteparse": "^1.5.2",
         "@llamaindex/llama-cloud": "^2.4.1",
-        "apache-arrow": "^18.1.0",
-        "llama-cloud-services": "^0.5.4",
         "next": "16.2.2",
         "pdfjs-dist": "^5.6.205",
         "react": "19.2.4",

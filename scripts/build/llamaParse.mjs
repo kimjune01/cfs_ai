@@ -15,8 +15,9 @@ import { execFileSync } from "child_process";
 import { tmpdir } from "os";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_PDF = join(__dirname, "../public/CFS.pdf");
-const DEFAULT_OUT = join(__dirname, "../data/parsed_llama.md");
+const PYTHON = join(__dirname, "../../.venv/bin/python");
+const DEFAULT_PDF = join(__dirname, "../../public/CFS.pdf");
+const DEFAULT_OUT = join(__dirname, "../../data/parsed_llama.md");
 const SEGMENT_PAGES = 100;
 
 const pdfPath = realpathSync(process.argv[2] ?? DEFAULT_PDF);
@@ -30,7 +31,7 @@ if (!process.env.LLAMA_CLOUD_API_KEY) {
 const client = new LlamaCloud({ apiKey: process.env.LLAMA_CLOUD_API_KEY, timeout: 300_000 });
 
 function getPageCount(pdf) {
-    const out = execFileSync("python3", [
+    const out = execFileSync(PYTHON, [
         "-c",
         `import pypdf; print(len(pypdf.PdfReader('${pdf}').pages))`,
     ]);
@@ -38,7 +39,7 @@ function getPageCount(pdf) {
 }
 
 function splitPdf(pdf, startPage, endPage, outFile) {
-    execFileSync("python3", [
+    execFileSync(PYTHON, [
         "-c",
         `
 import pypdf, sys

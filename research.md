@@ -51,10 +51,10 @@ Pipeline in `src/lib/agentLoop.ts`:
 | `scripts/runtime/cfsVectorSearch.mjs`  | Vector search CLI — pure ANN, spawned per request                             |
 | `scripts/build/llamaParse.mjs`         | One-time: CFS.pdf → data/parsed_llama.md (LlamaParse cloud, splits 100p/seg)  |
 | `scripts/build/preprocess.py`          | One-time: strips boilerplate page headers from parsed_llama.md                |
-| `scripts/build/lateChunkEmbedCloud.py` | One-time: preprocessed.md → data/embeddings.json (Jina v4 API, late chunking) |
+| `scripts/build/chunkEmbed.py`          | One-time: preprocessed.md → data/embeddings.json (Jina v4 API, late chunking) |
 | `scripts/build/buildIndex.py`          | One-time: embeddings.json → data/lancedb/                                     |
 | `data/parsed_llama_preprocessed.md`    | Cleaned LlamaParse markdown — source for embeddings                           |
-| `data/embeddings.json`                 | 6296 chunks with 2048-dim normalized embeddings                               |
+| `data/embeddings.json`                 | 6649 chunks with 2048-dim normalized embeddings                               |
 | `data/lancedb/`                        | Vector index                                                                  |
 | `public/CFS.pdf`                       | Source NavCanada CFS document                                                 |
 

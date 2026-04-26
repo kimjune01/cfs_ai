@@ -27,7 +27,7 @@ User question
  └── Two queries per ICAO: aerodrome name + topic, and ICAO code + topic
       │
       ▼
- Vector search (LanceDB + jina-embeddings-v2-base-en) ×2 in parallel
+ Vector search (LanceDB + jina-embeddings-v4) ×2 in parallel
  └── Pure ANN — normalized vectors, cosine similarity via L2
       │
       ▼
@@ -54,17 +54,17 @@ User question
 
 ## Tech stack
 
-| Layer                  | Tool                                                                              |
-| ---------------------- | --------------------------------------------------------------------------------- |
-| Web framework          | Next.js 16 (App Router)                                                           |
-| UI                     | React + Tailwind CSS                                                              |
-| Embedding model        | `jina-embeddings-v2-base-en` (index: Jina cloud API; search: `Xenova/` ONNX port) |
-| PDF parser             | LlamaParse cloud API                                                              |
-| Vector database        | LanceDB                                                                           |
-| Language model         | Claude Sonnet (via Claude Code CLI — keychain auth)                               |
-| PDF text search        | `pdftotext` (poppler)                                                             |
-| PDF rendering — server | `pdftoppm` (poppler)                                                              |
-| PDF rendering — client | PDF.js                                                                            |
+| Layer                  | Tool                                                                    |
+| ---------------------- | ----------------------------------------------------------------------- |
+| Web framework          | Next.js 16 (App Router)                                                 |
+| UI                     | React + Tailwind CSS                                                    |
+| Embedding model        | `jina-embeddings-v4` (Jina cloud API — index + runtime query embedding) |
+| PDF parser             | LlamaParse cloud API                                                    |
+| Vector database        | LanceDB                                                                 |
+| Language model         | Claude Sonnet (via Claude Code CLI — keychain auth)                     |
+| PDF text search        | `pdftotext` (poppler)                                                   |
+| PDF rendering — server | `pdftoppm` (poppler)                                                    |
+| PDF rendering — client | PDF.js                                                                  |
 
 ## Project structure
 
@@ -77,10 +77,9 @@ cfs_ai/
 │   ├── build/
 │   │   ├── llamaParse.mjs              # CFS.pdf → data/parsed_llama.md (LlamaParse cloud)
 │   │   ├── preprocess.py               # parsed_llama.md → parsed_llama_preprocessed.md
-│   │   ├── embedChunks.py              # preprocessed.md → data/embeddings.json (Jina cloud)
+│   │   ├── chunkEmbed.py               # preprocessed.md → data/embeddings.json (Jina v4 API)
 │   │   ├── buildIndex.py               # embeddings.json → data/lancedb/
-│   │   ├── liteParse.mjs               # Alternative: CFS.pdf → data/parsed.json
-│   │   └── lateChunkEmbedLocal.py      # Alternative: local torch/transformers pipeline
+│   │   └── liteParse.mjs               # Alternative: CFS.pdf → data/parsed.json
 │   ├── runtime/
 │   │   ├── cfsVectorSearch.mjs         # Vector search CLI (spawned per request)
 │   │   └── cfsVisionQuery.mjs          # Standalone vision pipeline
@@ -90,7 +89,7 @@ cfs_ai/
 ├── data/
 │   ├── parsed_llama.md                 # Raw LlamaParse output
 │   ├── parsed_llama_preprocessed.md    # Cleaned markdown (boilerplate stripped)
-│   ├── embeddings.json                 # Chunk embeddings from Jina API
+│   ├── embeddings.json                 # 6649 chunk embeddings from Jina API (2048-dim)
 │   └── lancedb/                        # Vector index
 └── src/
     ├── lib/
@@ -140,13 +139,15 @@ cfs_ai/
     JINA_API_KEY=<your key>
     ```
 
+    `JINA_API_KEY` is used both at index-build time and at runtime — `cfsVectorSearch.mjs` calls the Jina API to embed each query.
+
 5. Obtain a copy of the CFS PDF from NavCanada and place it at `public/CFS.pdf`. Then generate the vector index:
 
     ```bash
     LLAMA_CLOUD_API_KEY=... node scripts/build/llamaParse.mjs
-    python3 scripts/build/preprocess.py
-    JINA_API_KEY=... python3 scripts/build/embedChunks.py
-    python3 scripts/build/buildIndex.py
+    uv run python scripts/build/preprocess.py
+    JINA_API_KEY=... uv run python scripts/build/chunkEmbed.py
+    uv run python scripts/build/buildIndex.py
     ```
 
 6. Start the dev server:

@@ -15,7 +15,7 @@ const getSharedPdfDoc = (): Promise<PDFDocumentProxy> => {
     if (!sharedDocPromise) {
         sharedDocPromise = import("pdfjs-dist").then(({ getDocument, GlobalWorkerOptions }) => {
             GlobalWorkerOptions.workerSrc = "/pdf.worker.mjs";
-            return getDocument("/CFS.pdf").promise as Promise<PDFDocumentProxy>;
+            return getDocument("/CFS.pdf").promise;
         });
     }
     return sharedDocPromise;
