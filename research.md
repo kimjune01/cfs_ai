@@ -16,13 +16,13 @@ Pilots ask questions like "What's the circuit altitude at CYVR?" and the app ret
 | PDF (server) | Poppler (pdftotext, pdftoppm)                     |
 | Python       | uv (pyproject.toml + uv.lock, .venv isolated)     |
 
-## Core Architecture — Hybrid Agentic RAG
+## Core Architecture — Agentic RAG
 
 Pipeline in `src/lib/agentLoop.ts`:
 
 1. **Evaluator** — infers or validates all ICAO codes (supports multi-aerodrome questions), rejects non-BC / off-topic questions, loops with clarifying questions until unambiguous. Hands off a synthesized self-contained question containing all resolved ICAOs.
-2. **Query rewriting** — Claude optimizes the resolved question for vector search
-3. **Vector search** — LanceDB hybrid BM25 full-text + ANN, union by chunk id
+2. **Query rewriting** — Claude generates two queries per ICAO: aerodrome name + topic, and ICAO code + topic. Both run in parallel against the vector index.
+3. **Vector search** — LanceDB ANN, normalized vectors, cosine similarity via L2 distance (`score = 1 - L2²/2`). Results from both queries deduplicated by page, keeping max score.
 4. **Decision** — answers directly if results are sufficient; escalates to vision if results are ambiguous, field label doesn't match, pilot is repeating/doubting a previous answer, or the `pages` field is absent from the response
 5. **Vision escalation** — PDF pages rendered as images, Claude reads them for ground truth
 
@@ -48,10 +48,13 @@ Pipeline in `src/lib/agentLoop.ts`:
 | `src/app/components/agentTrace.tsx`    | Collapsible trace panel                                                       |
 | `src/app/components/pdfPageViewer.tsx` | Canvas PDF renderer                                                           |
 | `src/app/hooks/useAgentStream.ts`      | Client-side NDJSON stream consumer                                            |
-| `scripts/cfsVectorSearch.mjs`          | Vector search CLI — hybrid BM25 + ANN, spawned per request                    |
-| `scripts/liteParse.mjs`                | One-time: CFS.pdf → data/parsed.json (via LiteParse)                          |
-| `scripts/lateChunkEmbed.py`            | One-time: parsed.json → LanceDB index (Jina v2, late chunking)                |
-| `data/chunks.json`                     | ~1000 parsed aerodrome entries                                                |
+| `scripts/runtime/cfsVectorSearch.mjs`  | Vector search CLI — pure ANN, spawned per request                             |
+| `scripts/build/llamaParse.mjs`         | One-time: CFS.pdf → data/parsed_llama.md (LlamaParse cloud, splits 100p/seg)  |
+| `scripts/build/preprocess.py`          | One-time: strips boilerplate page headers from parsed_llama.md                |
+| `scripts/build/embedChunks.py`         | One-time: preprocessed.md → data/embeddings.json (Jina cloud API)             |
+| `scripts/build/buildIndex.py`          | One-time: embeddings.json → data/lancedb/                                     |
+| `data/parsed_llama_preprocessed.md`    | Cleaned LlamaParse markdown — source for embeddings                           |
+| `data/embeddings.json`                 | 6296 chunks with 768-dim normalized embeddings                                |
 | `data/lancedb/`                        | Vector index                                                                  |
 | `public/CFS.pdf`                       | Source NavCanada CFS document                                                 |
 
@@ -59,7 +62,8 @@ Pipeline in `src/lib/agentLoop.ts`:
 
 - **Canadian ICAO codes include digits** — e.g. `CAJ4`, `CBP3` (32 of 61 aerodromes in the index). Regexes must use `C[A-Z0-9]{3}`, not `C[A-Z]{3}`. This affects `agentTools.ts` (`ICAO_RE`, `ICAO_RE_GLOBAL`).
 - Claude invoked via **subprocess spawn** (not SDK) — forces macOS keychain OAuth, `ANTHROPIC_API_KEY` stripped from subprocess env. 60s timeout, 1 retry on transient failure. `@anthropic-ai/sdk` and `@anthropic-ai/claude-code` are intentionally absent from dependencies.
-- **Union hybrid search** — `cfsVectorSearch.mjs` runs vector ANN and BM25 passes independently (k=10 each), unions by chunk id keeping max score, sorts descending. BM25 hits get a fixed score of 0.5 (below typical vector scores of ~0.75) so they appear after vector results but are always included. Avoids RRF, which penalises chunks that rank well in BM25 but poorly in vector search.
+- **Pure ANN search** — `cfsVectorSearch.mjs` runs a single normalized vector search. Scores computed as `1 - L2²/2` (exact cosine similarity for unit vectors). BM25 removed — LlamaParse markdown quality makes keyword overlap less necessary.
+- **Dual query per ICAO** — `rephraseMultipleQueries` generates two queries per aerodrome: `"<name> <topic>"` and `"<ICAO> <topic>"`. Both run in parallel; results deduplicated by start page keeping the higher score. Improves recall when the aerodrome name is referenced in unrelated chunks (e.g. VOR references).
 - **Emit context** — `AsyncLocalStorage` stores the emit function per request; pipeline modules import `emit` directly instead of receiving it as a parameter
 - **Streaming NDJSON** — client sees real-time trace events (`evaluating`, `vector_search`, `deciding`, `decision`, `vision_search`, `vision_reading`, `synthesize`, `done`)
 - **Markdown rendering** — answers rendered via `react-markdown` + `remark-gfm` (tables, bold, lists)

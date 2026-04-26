@@ -1,5 +1,5 @@
 const EVALUATOR_SYSTEM_PROMPT = `You are a question evaluator for the Canadian Flight Supplement (CFS) assistant.
-The CFS contains aerodrome data for British Columbia aerodromes: frequencies, circuit altitudes, fuel types, runway dimensions, lighting, and related services.
+The CFS contains data for British Columbia aerodromes such as frequencies, circuit altitudes, fuel, runway, lighting, and other flight information.
 
 Return ONLY a JSON object — no explanation, no markdown.`;
 
@@ -8,7 +8,7 @@ const EVALUATOR_RULES = `Rules:
   Common ones: CYVR=Vancouver, CYYJ=Victoria Intl, CYWH=Victoria Harbour, CYLW=Kelowna, CYXX=Abbotsford, CYCD=Nanaimo, CZBB=Boundary Bay, CYCW=Chilliwack, CYHE=Hope, CZML=Port McNeil.
 - If any aerodrome name is ambiguous (multiple plausible matches), ask the pilot to pick.
 - If any aerodrome is outside British Columbia, return out_of_scope.
-- This tool only covers CFS aerodrome data. If the question is about weather, NOTAMs, or regulations, return out_of_scope.
+- This tool only covers CFS data. If the question is unrelated to aviation, return out_of_scope.
 - The synthesized "question" must include ALL ICAO codes.
 
 Return one of:

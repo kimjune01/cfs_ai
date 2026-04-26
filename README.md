@@ -8,7 +8,7 @@ An AI-powered Q&A tool for Canadian pilots. Ask questions about aerodromes, circ
 
 ## How it works
 
-The app is a hybrid agentic RAG pipeline. Every question is validated, then routed through vector search first — with Claude rephrasing the query for better retrieval — and escalated to vision only when the vector results are insufficient.
+The app is an agentic RAG pipeline. Every question is validated, then routed through vector search first — with Claude rephrasing queries for better retrieval — and escalated to vision only when the vector results are insufficient.
 
 ```
 User question
@@ -24,11 +24,11 @@ User question
       │
       ▼
  Query rephrasing (Claude)
- └── Rewrites the question into a precise vector search query
+ └── Two queries per ICAO: aerodrome name + topic, and ICAO code + topic
       │
       ▼
- Vector search (LanceDB + jina-embeddings-v2-base-en)
- └── Hybrid: BM25 full-text + semantic ANN, union by chunk id
+ Vector search (LanceDB + jina-embeddings-v2-base-en) ×2 in parallel
+ └── Pure ANN — normalized vectors, cosine similarity via L2
       │
       ▼
  Decision (Claude)
@@ -54,51 +54,60 @@ User question
 
 ## Tech stack
 
-| Layer                  | Tool                                                                                  |
-| ---------------------- | ------------------------------------------------------------------------------------- |
-| Web framework          | Next.js 16 (App Router)                                                               |
-| UI                     | React + Tailwind CSS                                                                  |
-| Embedding model        | `jinaai/jina-embeddings-v2-base-en` (index: HuggingFace; search: `Xenova/` ONNX port) |
-| Vector database        | LanceDB                                                                               |
-| Language model         | Claude Sonnet (via Claude Code CLI — keychain auth)                                   |
-| PDF text search        | `pdftotext` (poppler)                                                                 |
-| PDF rendering — server | `pdftoppm` (poppler)                                                                  |
-| PDF rendering — client | PDF.js                                                                                |
+| Layer                  | Tool                                                                              |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| Web framework          | Next.js 16 (App Router)                                                           |
+| UI                     | React + Tailwind CSS                                                              |
+| Embedding model        | `jina-embeddings-v2-base-en` (index: Jina cloud API; search: `Xenova/` ONNX port) |
+| PDF parser             | LlamaParse cloud API                                                              |
+| Vector database        | LanceDB                                                                           |
+| Language model         | Claude Sonnet (via Claude Code CLI — keychain auth)                               |
+| PDF text search        | `pdftotext` (poppler)                                                             |
+| PDF rendering — server | `pdftoppm` (poppler)                                                              |
+| PDF rendering — client | PDF.js                                                                            |
 
 ## Project structure
 
 ```
 cfs_ai/
 ├── public/
-│   ├── CFS.pdf                    # Source document
-│   └── pdf.worker.mjs             # PDF.js worker
+│   ├── CFS.pdf                         # Source document
+│   └── pdf.worker.mjs                  # PDF.js worker
 ├── scripts/
-│   ├── liteParse.mjs              # PDF → data/parsed.json (run once)
-│   ├── lateChunkEmbed.py          # parsed.json → LanceDB (run once)
-│   ├── cfsVectorSearch.mjs        # Vector search CLI — hybrid BM25 + ANN (called per request)
-│   ├── cfsVisionQuery.mjs         # Standalone vision pipeline script
-│   ├── eval.ts                    # LLM-as-judge eval runner
-│   └── evalCases.ts               # Golden Q&A test cases
+│   ├── build/
+│   │   ├── llamaParse.mjs              # CFS.pdf → data/parsed_llama.md (LlamaParse cloud)
+│   │   ├── preprocess.py               # parsed_llama.md → parsed_llama_preprocessed.md
+│   │   ├── embedChunks.py              # preprocessed.md → data/embeddings.json (Jina cloud)
+│   │   ├── buildIndex.py               # embeddings.json → data/lancedb/
+│   │   ├── liteParse.mjs               # Alternative: CFS.pdf → data/parsed.json
+│   │   └── lateChunkEmbedLocal.py      # Alternative: local torch/transformers pipeline
+│   ├── runtime/
+│   │   ├── cfsVectorSearch.mjs         # Vector search CLI (spawned per request)
+│   │   └── cfsVisionQuery.mjs          # Standalone vision pipeline
+│   └── eval/
+│       ├── eval.ts                     # LLM-as-judge eval runner
+│       └── evalCases.ts                # Golden Q&A test cases
 ├── data/
-│   ├── chunks.json                # Parsed aerodrome chunks
-│   └── lancedb/                   # Vector index
+│   ├── parsed_llama.md                 # Raw LlamaParse output
+│   ├── parsed_llama_preprocessed.md    # Cleaned markdown (boilerplate stripped)
+│   ├── embeddings.json                 # Chunk embeddings from Jina API
+│   └── lancedb/                        # Vector index
 └── src/
     ├── lib/
-    │   ├── types.ts               # Shared types (Turn, TraceEvent, etc.)
-    │   ├── processUtils.ts        # Shared Claude binary + env helpers
-    │   ├── agentTools.ts          # PDF utilities + Claude runner
-    │   ├── vectorSearch.ts        # LanceDB hybrid search
-    │   ├── visionSearch.ts        # PDF vision pipeline
-    │   ├── promptEvaluator.ts     # Question evaluator (ICAO inference, scope check)
-    │   └── agentLoop.ts           # Agent orchestration
+    │   ├── types.ts                    # Shared types (Turn, TraceEvent, etc.)
+    │   ├── agentTools.ts               # Query rewriting, ICAO extraction, chunk formatting
+    │   ├── vectorSearch.ts             # LanceDB search subprocess wrapper
+    │   ├── visionSearch.ts             # PDF vision pipeline
+    │   ├── promptEvaluator.ts          # Question evaluator (ICAO inference, scope check)
+    │   └── agentLoop.ts                # Agent orchestration
     └── app/
-        ├── api/chat/route.ts      # Streaming NDJSON endpoint
+        ├── api/chat/route.ts           # Streaming NDJSON endpoint
         ├── hooks/
-        │   └── useAgentStream.ts  # Client-side stream consumer
+        │   └── useAgentStream.ts       # Client-side stream consumer
         ├── components/
-        │   ├── agentTrace.tsx     # Collapsible agent trace panel
-        │   └── pdfPageViewer.tsx  # PDF page renderer
-        └── page.tsx               # Chat UI
+        │   ├── agentTrace.tsx          # Collapsible agent trace panel
+        │   └── pdfPageViewer.tsx       # PDF page renderer
+        └── page.tsx                    # Chat UI
 ```
 
 ## Setup
@@ -124,14 +133,23 @@ cfs_ai/
     brew install poppler
     ```
 
-4. Obtain a copy of the CFS PDF from NavCanada and place it at `public/CFS.pdf`. Then generate the vector index:
+4. Set API keys in `.env.local`:
 
-    ```bash
-    node scripts/liteParse.mjs
-    uv run python scripts/lateChunkEmbed.py
+    ```
+    LLAMA_CLOUD_API_KEY=<your key>
+    JINA_API_KEY=<your key>
     ```
 
-5. Start the dev server:
+5. Obtain a copy of the CFS PDF from NavCanada and place it at `public/CFS.pdf`. Then generate the vector index:
+
+    ```bash
+    LLAMA_CLOUD_API_KEY=... node scripts/build/llamaParse.mjs
+    python3 scripts/build/preprocess.py
+    JINA_API_KEY=... python3 scripts/build/embedChunks.py
+    python3 scripts/build/buildIndex.py
+    ```
+
+6. Start the dev server:
     ```bash
     npm run dev
     ```
