@@ -12,9 +12,6 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const DEFAULT_K = 5;
-// BM25-only hits get a fixed score below typical vector scores (~0.75)
-// so they appear after vector results but are always included in the union.
-const BM25_SCORE = 0.5;
 
 const rawArgs = process.argv.slice(2);
 const jsonMode = rawArgs.includes("--json");
@@ -34,7 +31,7 @@ for (let i = 0; i < rawArgs.length; i++) {
     }
 }
 
-const dbPath = getFlag("db") ?? join(__dirname, "../data/lancedb");
+const dbPath = getFlag("db") ?? join(__dirname, "../../data/lancedb");
 const tableName = getFlag("table") ?? "cfs";
 const modelId = getFlag("model") ?? "Xenova/jina-embeddings-v2-base-en";
 
@@ -53,42 +50,16 @@ async function search(query, k) {
     const db = await lancedb.connect(dbPath);
     const table = await db.openTable(tableName);
 
-    // Don't normalize — keep the same scale as stored index vectors so
-    // L2 distances are meaningful. queryNorm2 used in cosine score formula.
-    const output = await embedder(query, { pooling: "mean", normalize: false });
+    const output = await embedder(query, { pooling: "mean", normalize: true });
     const queryVec = Array.from(output.data);
-    const queryNorm2 = queryVec.reduce((s, x) => s + x * x, 0);
 
-    // Vector pass
-    const vecRows = await table.search(queryVec).limit(k).toArray();
-    const vecChunks = vecRows.map(({ vector: _v, _distance, ...c }) => ({
-        ...c,
-        score: _distance != null ? 1 - _distance / (2 * queryNorm2) : 1.0,
-    }));
-
-    // BM25 pass — union with vector results, don't replace them.
-    // Skipped silently if no FTS index exists on this table.
-    let bm25Chunks = [];
-    try {
-        const bm25Rows = await table
-            .query()
-            .fullTextSearch(query, { columns: ["text"] })
-            .select(["id", "start_page", "end_page", "text"])
-            .limit(k)
-            .toArray();
-        bm25Chunks = bm25Rows.map((c) => ({ ...c, score: BM25_SCORE }));
-    } catch {
-        /* no FTS index */
-    }
-
-    // Deduplicate by id keeping max score, then sort
-    const seen = new Map();
-    for (const chunk of [...vecChunks, ...bm25Chunks]) {
-        const key = Number(chunk.id);
-        const existing = seen.get(key);
-        if (!existing || chunk.score > existing.score) seen.set(key, chunk);
-    }
-    return [...seen.values()].sort((a, b) => b.score - a.score);
+    const rows = await table.search(queryVec).limit(k).toArray();
+    return rows
+        .map(({ vector: _v, _distance, ...c }) => ({
+            ...c,
+            score: _distance != null ? 1 - _distance / 2 : 1.0,
+        }))
+        .sort((a, b) => b.score - a.score);
 }
 
 try {

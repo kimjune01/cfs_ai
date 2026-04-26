@@ -5,7 +5,7 @@ import { emit } from "./emitContext";
 import type { VectorChunk } from "./types";
 import { attachAbort } from "./utils/processUtils";
 
-const CFS_SEARCH = join(process.cwd(), "scripts", "cfsVectorSearch.mjs");
+const CFS_SEARCH = join(process.cwd(), "scripts", "runtime", "cfsVectorSearch.mjs");
 
 const vectorSearch = async (
     query: string,
