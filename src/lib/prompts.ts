@@ -5,7 +5,6 @@ Return ONLY a JSON object — no explanation, no markdown.`;
 
 const EVALUATOR_RULES = `Rules:
 - Extract or infer ALL ICAO codes in the question. Canadian airport ICAO codes start with C.
-  Common ones: CYVR=Vancouver, CYYJ=Victoria Intl, CYWH=Victoria Harbour, CYLW=Kelowna, CYXX=Abbotsford, CYCD=Nanaimo, CZBB=Boundary Bay, CYCW=Chilliwack, CYHE=Hope, CZML=Port McNeil.
 - If any aerodrome name is ambiguous (multiple plausible matches), ask the pilot to pick.
 - If any aerodrome is outside British Columbia, return out_of_scope.
 - This tool only covers CFS data. If the question is unrelated to aviation, return out_of_scope.

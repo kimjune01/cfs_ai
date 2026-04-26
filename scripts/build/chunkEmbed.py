@@ -21,8 +21,30 @@ DEFAULT_INPUT = DATA / "parsed_llama_preprocessed.md"
 DEFAULT_OUTPUT = DATA / "embeddings.json"
 
 
+_BOILERPLATE = re.compile(
+    r"^(british\s+columbia(\s+aerodrome/facility\s+directory)?|aerodrome/facility\s+directory)$",
+    re.IGNORECASE,
+)
+
+
+def extract_page_title(text: str) -> str:
+    lines = [l.strip() for l in text.splitlines()]
+    for line in lines:
+        if m := re.match(r"^#{1,3}\s+(.+)", line):
+            return m.group(1).strip()
+    for line in lines:
+        if line.startswith("**") and line.endswith("**"):
+            return re.sub(r"\*\*", "", line).strip()
+    for line in lines:
+        if not line or line.startswith("<!--") or line.startswith("<") or line.startswith("!["):
+            continue
+        if not _BOILERPLATE.match(line):
+            return line
+    return ""
+
+
 def load_markdown_pages(path: Path) -> list[dict]:
-    """Parse <!-- page:N --> markers into [{text, pageNum}] dicts."""
+    """Parse <!-- page:N --> markers into [{pageNum, text, title}] dicts."""
     text = path.read_text(encoding="utf-8")
     parts = re.split(r"<!-- page:(\d+) -->", text)
     # parts = ["", "1", "<page 1 text>", "2", "<page 2 text>", ...]
@@ -31,7 +53,11 @@ def load_markdown_pages(path: Path) -> list[dict]:
         page_num = int(parts[i])
         page_text = parts[i + 1].strip()
         if page_text:
-            pages.append({"pageNum": page_num, "text": page_text})
+            pages.append({
+                "pageNum": page_num,
+                "text": page_text,
+                "title": extract_page_title(page_text),
+            })
     return pages
 
 
@@ -39,11 +65,13 @@ def load_markdown_pages(path: Path) -> list[dict]:
 class Chunk:
     id: int
     text: str
+    title: str
     start_page: int
     end_page: int
 
 
 def split_by_tokens(pages: list[dict], tokenizer) -> list[Chunk]:
+    page_titles = {p["pageNum"]: p["title"] for p in pages}
     flat: list[tuple[int, int]] = []
     for page in pages:
         token_ids = tokenizer.encode(page["text"], add_special_tokens=False)
@@ -54,10 +82,15 @@ def split_by_tokens(pages: list[dict], tokenizer) -> list[Chunk]:
         span = flat[i : i + CHUNK_SIZE]
         token_ids = [t[0] for t in span]
         page_nums = [t[1] for t in span]
+        start_page = page_nums[0]
+        title = page_titles.get(start_page, "")
+        raw_text = tokenizer.decode(token_ids, skip_special_tokens=True)
+        text = f"Title: {title}\n\n{raw_text}" if title else raw_text
         chunks.append(Chunk(
             id=len(chunks),
-            text=tokenizer.decode(token_ids, skip_special_tokens=True),
-            start_page=page_nums[0],
+            text=text,
+            title=title,
+            start_page=start_page,
             end_page=page_nums[-1],
         ))
     return chunks

@@ -23,6 +23,7 @@ type EmitFn = (event: TraceEvent) => void;
 type VectorChunk = {
     startPage: number;
     endPage: number;
+    title: string;
     text: string;
     score: number;
 };

@@ -24,7 +24,8 @@ const formatVectorChunks = (chunks: VectorChunk[]): string => {
                 chunk.endPage > chunk.startPage
                     ? `Pages ${chunk.startPage}–${chunk.endPage}`
                     : `Page ${chunk.startPage}`;
-            return `[${pageLabel} | score=${chunk.score}]\n${chunk.text}`;
+            const titlePart = chunk.title ? ` | ${chunk.title}` : "";
+            return `[${pageLabel}${titlePart} | score=${chunk.score}]\n${chunk.text}`;
         })
         .join("\n\n---\n\n");
     return `[Vector search results]\n\n${body}`;

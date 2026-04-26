@@ -93,6 +93,7 @@ try {
         const results = chunks.map((c) => ({
             startPage: Number(c.start_page),
             endPage: Number(c.end_page),
+            title: c.title ?? "",
             text: c.text,
             score: +c.score.toFixed(3),
         }));

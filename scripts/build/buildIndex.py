@@ -23,6 +23,7 @@ def main(input_path: Path, db_path: Path) -> None:
         {
             "id": r["id"],
             "text": r["text"],
+            "title": r["title"],
             "start_page": r["start_page"],
             "end_page": r["end_page"],
             "vector": r["embedding"],
