@@ -4,8 +4,8 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_PDF = join(__dirname, "../public/CFS.pdf");
-const DEFAULT_OUT = join(__dirname, "../data/parsed.json");
+const DEFAULT_PDF = join(__dirname, "../../public/CFS.pdf");
+const DEFAULT_OUT = join(__dirname, "../../data/parsed.json");
 
 async function main() {
     const pdfPath = process.argv[2] ?? DEFAULT_PDF;

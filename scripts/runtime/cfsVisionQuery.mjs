@@ -20,7 +20,7 @@ import { tmpdir } from "os";
 
 const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const projectRoot = join(__dirname, "..");
+const projectRoot = join(__dirname, "../..");
 const PDF_PATH = join(projectRoot, "public", "CFS.pdf");
 const CLAUDE_BIN = "claude";
 

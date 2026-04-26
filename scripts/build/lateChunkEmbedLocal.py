@@ -17,8 +17,8 @@ OVERLAP_TOKENS = 512
 CHUNK_SIZE = 512       # tokens per chunk
 CHUNK_SEPARATOR = "\n\n"
 
-DEFAULT_INPUT = Path(__file__).parent.parent / "data" / "parsed.json"
-DEFAULT_DB = Path(__file__).parent.parent / "data" / "lancedb"
+DEFAULT_INPUT = Path(__file__).parents[2] / "data" / "parsed.json"
+DEFAULT_DB = Path(__file__).parents[2] / "data" / "lancedb"
 
 
 @dataclass

@@ -14,8 +14,8 @@
 
 import { spawn } from "child_process";
 
-import { runAgentLoop } from "../src/lib/agentLoop.js";
-import type { Turn } from "../src/lib/types.js";
+import { runAgentLoop } from "../../src/lib/agentLoop.js";
+import type { AgentResult, Turn } from "../../src/lib/types.js";
 import { EVAL_CASES, type EvalCase } from "./evalCases.js";
 
 // Strip ANTHROPIC_API_KEY so the claude binary uses keychain auth instead
@@ -118,7 +118,7 @@ const runCase = async (evalCase: EvalCase): Promise<CaseResult> => {
 
     let actualAnswer = "";
     try {
-        const result = await runAgentLoop(
+        const result: AgentResult = await runAgentLoop(
             evalCase.question,
             [] as Turn[],
             () => {},
