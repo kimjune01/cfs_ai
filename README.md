@@ -81,8 +81,7 @@ cfs_ai/
 │   │   ├── buildIndex.py               # embeddings.json → data/lancedb/
 │   │   └── liteParse.mjs               # Alternative: CFS.pdf → data/parsed.json
 │   ├── runtime/
-│   │   ├── cfsVectorSearch.mjs         # Vector search CLI (spawned per request)
-│   │   └── cfsVisionQuery.mjs          # Standalone vision pipeline
+│   │   └── cfsVectorSearch.mjs         # Vector search CLI (spawned per request)
 │   └── eval/
 │       ├── eval.ts                     # LLM-as-judge eval runner
 │       └── evalCases.ts                # Golden Q&A test cases
