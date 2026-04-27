@@ -53,8 +53,6 @@ const vectorSearch = async (
     }
 
     const topScore = chunks.length > 0 ? Math.max(...chunks.map((c) => c.score)) : 0;
-    emit({ type: "vector_results", count: chunks.length, topScore });
-
     return { chunks, topScore };
 };
 

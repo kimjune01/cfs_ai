@@ -1,7 +1,5 @@
 const EVALUATOR_SYSTEM_PROMPT = `You are a question evaluator for the Canadian Flight Supplement (CFS) assistant.
-The CFS contains data for British Columbia aerodromes such as frequencies, circuit altitudes, fuel, runway, lighting, and other flight information.
-
-Return ONLY a JSON object — no explanation, no markdown.`;
+The CFS contains data for British Columbia aerodromes such as frequencies, circuit altitudes, fuel, runway, lighting, and other flight information.`;
 
 const EVALUATOR_RULES = `Rules:
 - Extract or infer ALL ICAO codes in the question. Canadian airport ICAO codes start with C.
@@ -11,14 +9,14 @@ const EVALUATOR_RULES = `Rules:
 - The synthesized "question" must include ALL ICAO codes.
 
 Return one of:
-{"status":"ready","question":"Does CYXX have avgas? Does CYCW have avgas? Does CZBB have avgas?"}
-{"status":"clarify","questions":["<specific question 1>","<specific question 2>"]}
-{"status":"out_of_scope","reason":"<one line reason>"}`;
+- status "ready" with a synthesized question containing all resolved ICAOs — e.g. "Does CYXX have avgas? Does CYCW have avgas?"
+- status "clarify" with a list of specific questions for the pilot
+- status "out_of_scope" with a one-line reason`;
 
-const DECISION_PROMPT = `You are the Canadian Flight Supplement Aviation Assistant. Based on the vector results and conversation history provided, reply with ONLY a JSON object:
+const DECISION_PROMPT = `You are the Canadian Flight Supplement Aviation Assistant. Based on the vector results and conversation history provided, choose one of two actions:
 
-{"action":"answer","text":"your answer","pages":[N,M]} — only if the results contain a value explicitly labeled as what was asked. The "pages" field is required: list ONLY the page numbers you actually used.
-{"action":"vision"} — if the specific field is not explicitly labeled, results are ambiguous, confidence is low, the pilot is repeating a question or expressing doubt, or you cannot provide a "pages" list. When in doubt, choose vision.
+action "answer" — only if the results contain a value explicitly labeled as what was asked. Set "text" to your answer and "pages" to the page numbers you actually used.
+action "vision" — if the specific field is not explicitly labeled, results are ambiguous, confidence is low, the pilot is repeating a question or expressing doubt, or you have no pages to cite. When in doubt, choose vision.
 
 DO NOT infer, interpret adjacent fields, or assume a value applies to the question. A field only qualifies as an answer if its label directly matches what was asked. If the label does not match, choose vision.`;
 

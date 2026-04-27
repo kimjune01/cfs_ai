@@ -1,9 +1,9 @@
 import { extractICAOCodes, formatHistoryForPrompt } from "./agentTools";
 import { emit } from "./emitContext";
 import { EVALUATOR_RULES, EVALUATOR_SYSTEM_PROMPT } from "./prompts";
+import { EVALUATOR_SCHEMA } from "./schemas";
 import type { AgentResult, Turn } from "./types";
 import { runClaude } from "./utils/claudeUtils";
-import { parseJsonObject } from "./utils/parseJson";
 
 type EvaluatorResult =
     | { status: "ready"; question: string }
@@ -27,9 +27,13 @@ const evaluate = async (
         `${EVALUATOR_RULES}`;
 
     try {
-        const raw = await runClaude(prompt, signal, EVALUATOR_SYSTEM_PROMPT);
-        const parsed = parseJsonObject<EvaluatorResult>(raw);
-        if (parsed?.status === "ready") {
+        const parsed = await runClaude<EvaluatorResult>(
+            prompt,
+            signal,
+            EVALUATOR_SYSTEM_PROMPT,
+            EVALUATOR_SCHEMA,
+        );
+        if (parsed.status === "ready") {
             if (
                 typeof parsed.question !== "string" ||
                 parsed.question.length > 500 ||
@@ -39,7 +43,7 @@ const evaluate = async (
             }
             return parsed;
         }
-        if (parsed?.status === "clarify" || parsed?.status === "out_of_scope") {
+        if (parsed.status === "clarify" || parsed.status === "out_of_scope") {
             return parsed;
         }
         throw new Error("Unexpected evaluator status");

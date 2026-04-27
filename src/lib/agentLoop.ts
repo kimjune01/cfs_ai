@@ -7,28 +7,17 @@ import {
 import { emit, runWithEmit } from "./emitContext";
 import { runEvaluationGate } from "./promptEvaluator";
 import { DECISION_PROMPT } from "./prompts";
+import { DECISION_SCHEMA } from "./schemas";
 import type { AgentResult, EmitFn, Turn, VectorChunk } from "./types";
 import { runClaude } from "./utils/claudeUtils";
-import { parseJsonObject } from "./utils/parseJson";
 import { vectorSearch } from "./vectorSearch";
 import { visionSearch } from "./visionSearch";
 
 const MAX_HISTORY_TURNS = 10;
 
-type Decision = { action: "answer"; text: string; sourcePages: number[] } | { action: "vision" };
+type Decision = { action: "answer"; text: string; pages: number[] } | { action: "vision" };
 
 const truncateHistory = (history: Turn[]): Turn[] => history.slice(-MAX_HISTORY_TURNS);
-
-const parseDecision = (raw: string): Decision => {
-    const parsed = parseJsonObject<{ action: string; text?: string; pages?: number[] }>(raw);
-    if (!parsed || parsed.action !== "answer" || !parsed.text) {
-        if (!parsed)
-            console.warn("Decision parse failed, escalating to vision:", raw.slice(0, 200));
-        return { action: "vision" };
-    }
-    if (!parsed.pages?.length) return { action: "vision" };
-    return { action: "answer", text: parsed.text, sourcePages: parsed.pages };
-};
 
 type VectorSearchResult = {
     queries: string[];
@@ -45,6 +34,8 @@ const runVectorSearch = async (
     const queries = await rephraseMultipleQueries(question, icaos, signal);
     const results = await Promise.all(queries.map((q) => vectorSearch(q, signal)));
     const chunks = deduplicateChunksByPage(results);
+    const topScore = chunks.length > 0 ? Math.max(...chunks.map((c) => c.score)) : 0;
+    emit({ type: "vector_results", count: chunks.length, topScore });
     return { queries, icaos, chunks };
 };
 
@@ -55,12 +46,12 @@ const runDecision = async (
     signal?: AbortSignal,
 ): Promise<Decision> => {
     emit({ type: "deciding" });
-    const raw = await runClaude(
+    const decision = await runClaude<Decision>(
         buildDecisionPrompt(history, question, chunks),
         signal,
         DECISION_PROMPT,
+        DECISION_SCHEMA,
     );
-    const decision = parseDecision(raw);
     emit({ type: "decision", action: decision.action });
     if (decision.action === "answer") emit({ type: "synthesize" });
     return decision;
@@ -95,7 +86,7 @@ const runAgentLoop = async (
         if (decision.action === "answer") {
             result = {
                 answer: decision.text,
-                sourcePages: decision.sourcePages,
+                sourcePages: decision.pages,
                 searchTerms: queries,
                 toolsCalled: ["vector"],
             };

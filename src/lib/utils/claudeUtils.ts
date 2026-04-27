@@ -5,11 +5,12 @@ import { attachAbort, CLAUDE_BIN, claudeEnv } from "./processUtils";
 const CLAUDE_TIMEOUT_MS = 60_000;
 const CLAUDE_MAX_RETRIES = 1;
 
-const runClaudeOnce = (
+const runClaudeOnce = <T = string>(
     prompt: string,
     signal?: AbortSignal,
     systemPrompt?: string,
-): Promise<string> =>
+    schema?: object,
+): Promise<T> =>
     new Promise((resolve, reject) => {
         const args = [
             "--enable-auto-mode",
@@ -20,6 +21,7 @@ const runClaudeOnce = (
             "sonnet",
         ];
         if (systemPrompt) args.push("--system-prompt", systemPrompt);
+        if (schema) args.push("--json-schema", JSON.stringify(schema));
         const proc = spawn(CLAUDE_BIN, args, { stdio: ["pipe", "pipe", "pipe"], env: claudeEnv });
 
         if (signal) attachAbort(proc, signal);
@@ -37,9 +39,13 @@ const runClaudeOnce = (
             clearTimeout(timer);
             if (signal?.aborted) return reject(new DOMException("Aborted", "AbortError"));
             try {
-                const parsed = JSON.parse(stdout) as { is_error: boolean; result: string };
+                const parsed = JSON.parse(stdout) as {
+                    is_error: boolean;
+                    result: string;
+                    structured_output?: T;
+                };
                 if (parsed.is_error) return reject(new Error(`Claude: ${parsed.result}`));
-                resolve(parsed.result.trim());
+                resolve((schema ? parsed.structured_output : parsed.result.trim()) as T);
             } catch {
                 const detail = stderr.slice(0, 200) || stdout.slice(0, 200);
                 reject(new Error(`claude exited ${code}: ${detail}`));
@@ -49,15 +55,23 @@ const runClaudeOnce = (
         proc.stdin.end();
     });
 
-const runClaude = async (
+function runClaude(prompt: string, signal?: AbortSignal, systemPrompt?: string): Promise<string>;
+function runClaude<T>(
+    prompt: string,
+    signal: AbortSignal | undefined,
+    systemPrompt: string | undefined,
+    schema: object,
+): Promise<T>;
+async function runClaude<T = string>(
     prompt: string,
     signal?: AbortSignal,
     systemPrompt?: string,
-): Promise<string> => {
+    schema?: object,
+): Promise<T | string> {
     let lastError: Error = new Error("Unknown error");
     for (let attempt = 0; attempt <= CLAUDE_MAX_RETRIES; attempt++) {
         try {
-            return await runClaudeOnce(prompt, signal, systemPrompt);
+            return await runClaudeOnce<T>(prompt, signal, systemPrompt, schema);
         } catch (e) {
             if (e instanceof DOMException && e.name === "AbortError") throw e;
             lastError = e as Error;
@@ -65,17 +79,6 @@ const runClaude = async (
         }
     }
     throw lastError;
-};
+}
 
-const parseJsonStringArray = (raw: string): string[] => {
-    try {
-        const jsonStr = raw.match(/\[[\s\S]*\]/)?.[0] ?? raw;
-        return (JSON.parse(jsonStr) as string[])
-            .map((t) => t.replace(/['"`.]/g, "").trim())
-            .filter(Boolean);
-    } catch {
-        return [raw.replace(/['"`.]/g, "").trim()].filter(Boolean);
-    }
-};
-
-export { parseJsonStringArray, runClaude };
+export { runClaude };
