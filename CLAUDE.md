@@ -18,6 +18,7 @@ npm run eval         # run all 13 golden Q&A eval cases
 
 ## Before committing or pushing
 
-1. Update `README.md` and `research.md` to reflect any changes.
-2. Remove unused packages from `package.json`; run `npm install` to update `package-lock.json`.
-3. Remove unused packages from `pyproject.toml`; run `uv sync` to update `uv.lock`.
+1. Run `npm run lint -- --fix && npm run format` and fix any errors.
+2. Update `README.md` and `research.md` to reflect any changes.
+3. Remove unused packages from `package.json`; run `npm install` to update `package-lock.json`.
+4. Remove unused packages from `pyproject.toml`; run `uv sync` to update `uv.lock`.

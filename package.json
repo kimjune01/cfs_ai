@@ -7,7 +7,8 @@
         "build": "next build",
         "start": "next start",
         "eval": "tsx scripts/eval/eval.ts",
-        "lint": "eslint src scripts",
+        "lint": "tsc --noEmit && eslint src scripts --fix",
+        "lint:check": "tsc --noEmit && eslint src scripts",
         "format": "prettier --write .",
         "format:check": "prettier --check ."
     },
