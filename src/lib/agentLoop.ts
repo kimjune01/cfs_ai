@@ -1,6 +1,6 @@
 import {
     buildDecisionPrompt,
-    deduplicateChunksByPage,
+    deduplicateChunks,
     extractICAOCodes,
     rephraseMultipleQueries,
 } from "./agentTools";
@@ -19,24 +19,18 @@ type Decision = { action: "answer"; text: string; pages: number[] } | { action: 
 
 const truncateHistory = (history: Turn[]): Turn[] => history.slice(-MAX_HISTORY_TURNS);
 
-type VectorSearchResult = {
-    queries: string[];
-    icaos: string[];
-    chunks: VectorChunk[];
-};
-
 const runVectorSearch = async (
     question: string,
+    icaos: string[],
     signal?: AbortSignal,
-): Promise<VectorSearchResult> => {
+): Promise<{ queries: string[]; chunks: VectorChunk[] }> => {
     emit({ type: "rephrasing" });
-    const icaos = extractICAOCodes(question);
     const queries = await rephraseMultipleQueries(question, icaos, signal);
     const results = await Promise.all(queries.map((q) => vectorSearch(q, signal)));
-    const chunks = deduplicateChunksByPage(results);
-    const topScore = chunks.length > 0 ? Math.max(...chunks.map((c) => c.score)) : 0;
+    const chunks = deduplicateChunks(results);
+    const topScore = Math.max(0, ...results.map((r) => r.topScore));
     emit({ type: "vector_results", count: chunks.length, topScore });
-    return { queries, icaos, chunks };
+    return { queries, chunks };
 };
 
 const runDecision = async (
@@ -79,29 +73,28 @@ const runAgentLoop = async (
         const gate = await runEvaluationGate(question, truncated, signal);
         if (gate.handled) return gate.result;
 
-        const { queries, icaos, chunks } = await runVectorSearch(gate.resolvedQuestion, signal);
+        const icaos = extractICAOCodes(gate.resolvedQuestion);
+        const { queries, chunks } = await runVectorSearch(gate.resolvedQuestion, icaos, signal);
         const decision = await runDecision(gate.resolvedQuestion, truncated, chunks, signal);
 
-        let result: AgentResult;
         if (decision.action === "answer") {
-            result = {
+            emit({ type: "done", answer: decision.text, sourcePages: decision.pages });
+            return {
                 answer: decision.text,
                 sourcePages: decision.pages,
                 searchTerms: queries,
                 toolsCalled: ["vector"],
             };
-        } else {
-            const vision = await runVisionSearch(gate.resolvedQuestion, icaos, signal);
-            result = {
-                answer: vision.answer,
-                sourcePages: vision.sourcePages,
-                searchTerms: [...queries, ...icaos],
-                toolsCalled: ["vector", "vision"],
-            };
         }
 
-        emit({ type: "done", answer: result.answer, sourcePages: result.sourcePages });
-        return result;
+        const vision = await runVisionSearch(gate.resolvedQuestion, icaos, signal);
+        emit({ type: "done", answer: vision.answer, sourcePages: vision.sourcePages });
+        return {
+            answer: vision.answer,
+            sourcePages: vision.sourcePages,
+            searchTerms: [...queries, ...icaos],
+            toolsCalled: ["vector", "vision"],
+        };
     }, emitFn);
 
 export { runAgentLoop };

@@ -32,15 +32,15 @@ const formatVectorChunks = (chunks: VectorChunk[]): string => {
     return `[Vector search results]\n\n${body}`;
 };
 
-const deduplicateChunksByPage = (results: { chunks: VectorChunk[] }[]): VectorChunk[] => {
-    const pageMap = new Map<number, VectorChunk>();
+const deduplicateChunks = (results: { chunks: VectorChunk[] }[]): VectorChunk[] => {
+    const seen = new Map<string, VectorChunk>();
     for (const result of results) {
         for (const chunk of result.chunks) {
-            const existing = pageMap.get(chunk.startPage);
-            if (!existing || chunk.score > existing.score) pageMap.set(chunk.startPage, chunk);
+            const existing = seen.get(chunk.text);
+            if (!existing || chunk.score > existing.score) seen.set(chunk.text, chunk);
         }
     }
-    return [...pageMap.values()].sort((a, b) => b.score - a.score);
+    return [...seen.values()].sort((a, b) => b.score - a.score);
 };
 
 const buildDecisionPrompt = (history: Turn[], question: string, chunks: VectorChunk[]): string =>
@@ -70,7 +70,7 @@ const rephraseMultipleQueries = async (
 
 export {
     buildDecisionPrompt,
-    deduplicateChunksByPage,
+    deduplicateChunks,
     extractICAOCodes,
     formatHistoryForPrompt,
     rephraseMultipleQueries,
