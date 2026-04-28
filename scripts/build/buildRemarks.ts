@@ -48,6 +48,15 @@ const convertPageMarkers = (text: string): string => {
     return text.replace(/<!--\s*page:(\d+)\s*-->/g, "<!-- source_page:$1 -->");
 };
 
+const matchAerodromeHeader = (line: string): RegExpExecArray | null => {
+    if (/cont'?d/i.test(line)) return null;
+    return (
+        /^#+\s*(C[A-Z0-9]{3})\b/.exec(line)
+        ?? /^(C[A-Z0-9]{3})\s+[-–—]/.exec(line)
+        ?? /\bBC\b.*\b(C[A-Z0-9]{3})\s*$/.exec(line)
+    );
+};
+
 const splitDocument = (
     markdown: string,
 ): { aerodromes: Map<string, string>; sections: Map<string, string> } => {
@@ -71,9 +80,7 @@ const splitDocument = (
     };
 
     for (const line of lines) {
-        // Detect aerodrome section start
-        const icaoMatch =
-            /^#+\s*(C[A-Z0-9]{3})\b/.exec(line) ?? /^(C[A-Z0-9]{3})\s+[-–—]/.exec(line);
+        const icaoMatch = matchAerodromeHeader(line);
 
         if (icaoMatch) {
             flush();

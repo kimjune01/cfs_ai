@@ -157,7 +157,11 @@ const splitSections = (markdown: string): { text: string; sourcePage: number }[]
             currentPage = parseInt(pageMatch[1], 10);
         }
 
-        const icaoMatch = /^#+\s*(C[A-Z0-9]{3})\b/.exec(line) ?? /^(C[A-Z0-9]{3})\s+[-–—]/.exec(line);
+        const icaoMatch = /cont'?d/i.test(line) ? null : (
+            /^#+\s*(C[A-Z0-9]{3})\b/.exec(line)
+            ?? /^(C[A-Z0-9]{3})\s+[-–—]/.exec(line)
+            ?? /\bBC\b.*\b(C[A-Z0-9]{3})\s*$/.exec(line)
+        );
         if (icaoMatch && current.trim().length > 0) {
             sections.push({ text: current.trim(), sourcePage: sectionStartPage });
             current = "";
