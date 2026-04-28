@@ -220,8 +220,8 @@ const Home = () => {
 const UserMessage = ({ content }: { content: string }) => (
     <div className="flex justify-end">
         <div className="msg-user-wrap">
-            <div className="msg-label msg-label-pilot tracking-widest uppercase mb-1.5 text-right">
-                Pilot
+            <div className="msg-label msg-label-user tracking-widest uppercase mb-1.5 text-right">
+                You
             </div>
             <div className="bubble-user px-4 py-3 rounded text-sm whitespace-pre-wrap leading-relaxed">
                 {content}

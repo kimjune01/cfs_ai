@@ -329,7 +329,7 @@ input::placeholder {
     letter-spacing: 0.14em;
     font-size: 0.75rem;
 }
-.msg-label-pilot {
+.msg-label-user {
     color: var(--text-dim);
 }
 .msg-label-cfs {

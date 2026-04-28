@@ -1,7 +1,6 @@
 import { spawn } from "child_process";
 import { join } from "path";
 
-import { emit } from "./emitContext";
 import type { VectorChunk } from "./types";
 import { attachAbort } from "./utils/processUtils";
 
@@ -11,8 +10,6 @@ const vectorSearch = async (
     query: string,
     signal?: AbortSignal,
 ): Promise<{ chunks: VectorChunk[]; topScore: number }> => {
-    emit({ type: "vector_search", query });
-
     const result = await new Promise<string>((resolve, reject) => {
         const proc = spawn("node", [CFS_SEARCH, query, "10", "--json"], {
             stdio: ["pipe", "pipe", "pipe"],
