@@ -32,6 +32,8 @@ const traceLabel = (event: TraceEvent): string => {
             return `Reading remarks for ${event.target}...`;
         case "layer_result":
             return `${event.route}: ${event.status}`;
+        case "composite_synthesis":
+            return `Reasoning across ${event.factCount} facts...`;
     }
 };
 

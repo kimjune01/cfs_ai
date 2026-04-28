@@ -86,17 +86,18 @@ Rules:
 - Include all relevant operational details — omitting conditions is dangerous.
 - Be concise but complete.`;
 
-const COMBINE_SYSTEM_PROMPT = `You are the Canadian Flight Supplement Aviation Assistant. You have received answers from multiple lookups. Combine them into a single coherent response.
+const COMPOSITE_SYNTHESIS_PROMPT = `You are the CFS Aviation Assistant. You received distilled facts from multiple CFS lookups. Reason across these facts to produce a complete answer to the user's question.
 
 Rules:
-- Include all relevant information from each sub-answer.
-- Preserve page references.
-- Do not add information not present in the sub-answers.
-- If a sub-answer says "not found", mention that the data was not found for that part.
-- Be concise but complete.`;
+- Draw inferences the individual lookups couldn't make in isolation.
+- State what was found AND what was not found.
+- When a fact has status "empty", explicitly note that the data is not published in the CFS.
+- Cite CFS page numbers from the sourcePages in each fact.
+- Do not add information beyond what the facts contain.
+- Be precise — aviation data demands it.`;
 
 export {
-    COMBINE_SYSTEM_PROMPT,
+    COMPOSITE_SYNTHESIS_PROMPT,
     EVALUATOR_SYSTEM_PROMPT,
     QUERY_DECOMPOSER_SYSTEM_PROMPT,
     REMARKS_SYSTEM_PROMPT,

@@ -3,7 +3,7 @@ import { decomposeQueries } from "./decomposer";
 import { emit, runWithEmit } from "./emitContext";
 import { evaluate } from "./evaluator";
 import { fanOutSearch } from "./fanOut";
-import { COMBINE_SYSTEM_PROMPT } from "./prompts";
+import { COMPOSITE_SYNTHESIS_PROMPT } from "./prompts";
 import { remarksSearch } from "./remarksSearch";
 import { findNearby } from "./spatialSearch";
 import { executeIntent } from "./structuredSearch";
@@ -252,31 +252,54 @@ const runAgentLoop = async (
             }
         });
 
-        // Phase 4: Combine results
+        // Phase 4: Terminal vs composite pipe
         let answer: string;
 
         if (hitAnswers.length === 0) {
             answer = "Not found in CFS. The requested information could not be located in the Canadian Flight Supplement data available.";
-        } else if (hitAnswers.length === 1) {
-            answer = hitAnswers[0];
+        } else if (steps.length === 1) {
+            // Terminal pipe — single step, return directly, no Sonnet
+            answer = hitAnswers[0] ?? "Not found in CFS.";
         } else {
-            // Multiple hits — combine with Haiku
-            const combinePrompt =
-                `<question>\n${question}\n</question>\n\n` +
-                hitAnswers
-                    .map((a, i) => `<result_${i + 1}>\n${a}\n</result_${i + 1}>`)
-                    .join("\n\n") +
-                `\n\nCombine the above results into a single coherent answer. Source pages: ${sourcePages.join(", ")}`;
+            // Composite pipe — distilled facts to Sonnet for cross-result reasoning
+            const factsXml = stepResults
+                .map(({ result }, i) => {
+                    const step = steps[i];
+                    const attrs = [
+                        `route="${result.route}"`,
+                        `status="${result.status}"`,
+                    ];
+                    if (step.route === "structured") {
+                        attrs.push(`icao="${step.icao}"`, `intent="${step.intent}"`);
+                    } else if (step.route === "spatial") {
+                        attrs.push(`origin="${step.origin}"`);
+                    } else if (step.route === "unstructured") {
+                        attrs.push(`target="${step.target}"`);
+                    }
+                    if (result.sourcePages.length > 0) {
+                        attrs.push(`sourcePages="${result.sourcePages.join(",")}"`);
+                    }
+
+                    if (result.status === "hit" && result.answer) {
+                        return `<fact ${attrs.join(" ")}>\n${result.answer}\n</fact>`;
+                    }
+                    return `<fact ${attrs.join(" ")}/>`;
+                })
+                .join("\n");
+
+            const compositePrompt =
+                `<question>\n${question}\n</question>\n\n<facts>\n${factsXml}\n</facts>`;
+
+            emit({ type: "composite_synthesis", factCount: stepResults.length });
 
             try {
                 answer = await runClaude({
-                    prompt: combinePrompt,
+                    prompt: compositePrompt,
                     signal,
-                    systemPrompt: COMBINE_SYSTEM_PROMPT,
-                    model: "haiku",
+                    systemPrompt: COMPOSITE_SYNTHESIS_PROMPT,
+                    model: "sonnet",
                 });
             } catch {
-                // If combining fails, just concatenate
                 answer = hitAnswers.join("\n\n---\n\n");
             }
         }

@@ -62,7 +62,8 @@ type TraceEvent =
     | { type: "structured_query"; intent: string; icao: string }
     | { type: "spatial_query"; origin: string; radiusNm: number }
     | { type: "remarks_lookup"; target: string }
-    | { type: "layer_result"; route: string; status: string };
+    | { type: "layer_result"; route: string; status: string }
+    | { type: "composite_synthesis"; factCount: number };
 
 type EmitFn = (event: TraceEvent) => void;
 
