@@ -1,30 +1,40 @@
 const EVALUATOR_SCHEMA = {
     type: "object",
     properties: {
-        status: { type: "string", enum: ["ready", "clarify", "out_of_scope"] },
-        question: { type: "string" },
-        questions: { type: "array", items: { type: "string" } },
+        status: { type: "string", enum: ["ready", "out_of_scope"] },
         reason: { type: "string" },
     },
-    required: ["status"],
+    required: ["status", "reason"],
 };
 
-const DECISION_SCHEMA = {
+const SYNTHESIZER_SCHEMA = {
     type: "object",
     properties: {
-        action: { type: "string", enum: ["answer", "vision"] },
-        text: { type: "string" },
-        pages: { type: "array", items: { type: "integer" } },
+        quality: { type: "string", enum: ["good", "weak"] },
+        answer: { type: "string" },
+        sourcePages: { type: "array", items: { type: "integer" } },
+        reason: { type: "string" },
     },
-    required: ["action"],
+    required: ["quality", "reason"],
 };
 
-const QUERIES_SCHEMA = {
+const QUERY_DECOMPOSER_SCHEMA = {
     type: "object",
     properties: {
-        queries: { type: "array", items: { type: "string" } },
+        subQueries: {
+            type: "array",
+            items: {
+                type: "object",
+                properties: {
+                    ref: { type: "string" },
+                    topic: { type: "string" },
+                },
+                required: ["ref", "topic"],
+            },
+        },
+        aerodromeRefs: { type: "array", items: { type: "string" } },
     },
-    required: ["queries"],
+    required: ["subQueries", "aerodromeRefs"],
 };
 
-export { DECISION_SCHEMA, EVALUATOR_SCHEMA, QUERIES_SCHEMA };
+export { EVALUATOR_SCHEMA, QUERY_DECOMPOSER_SCHEMA, SYNTHESIZER_SCHEMA };

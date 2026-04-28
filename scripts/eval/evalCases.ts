@@ -35,7 +35,7 @@ const EVAL_CASES: EvalCase[] = [
 
     {
         id: "cypk-tower-and-mf",
-        question: "What frequency do I call at CYPK?",
+        question: "What frequency do I call at Pitt Meadows?",
         expected_behavior:
             "CYPK (Pitt Meadows) uses 126.3 MHz as the tower frequency when the tower is operating (15-07Z), " +
             "and the same 126.3 MHz as the MF (Mandatory Frequency) when the tower is closed (07-15Z). " +
@@ -49,7 +49,7 @@ const EVAL_CASES: EvalCase[] = [
 
     {
         id: "cynj-tower-frequency",
-        question: "What is the tower frequency at CYNJ?",
+        question: "What is the tower frequency at Langley?",
         expected_behavior:
             "CYNJ (Langley Regional) has a tower on 119.0 MHz operating 1630-0230Z. " +
             "Outside those hours (0230-1630Z), 119.0 becomes the MF. " +
@@ -74,7 +74,7 @@ const EVAL_CASES: EvalCase[] = [
 
     {
         id: "czmt-no-avgas",
-        question: "Can I get 100LL avgas at CZMT?",
+        question: "Can I get 100LL avgas at Masset?",
         expected_behavior:
             "100LL avgas is NOT available at CZMT (Masset). Only JA-1 jet fuel is listed. " +
             "A correct answer must state that 100LL is not available or not published at CZMT. " +
@@ -86,14 +86,14 @@ const EVAL_CASES: EvalCase[] = [
 
     {
         id: "cyeg-not-in-cfs",
-        question: "What is the tower frequency at CYEG?",
+        question: "What is the tower frequency at Edmonton International?",
         expected_behavior:
-            "CYEG (Edmonton International) is not in this CFS database (which covers British Columbia). " +
-            "A correct answer must say that CYEG data is not available or not found in this CFS. " +
+            "CYEG (Edmonton International) is in Alberta, not British Columbia. " +
+            "The evaluator must reject this as out of scope and explain that this tool covers BC aerodromes only. " +
             "The answer must NOT invent or hallucinate a frequency for CYEG. " +
-            "Responding with 'not published in this CFS entry' or similar is correct.",
-        ground_truth: "CYEG is not covered in this BC CFS dataset",
-        tags: ["not-published", "hallucination-guard"],
+            "The response must NOT say the data is 'not published' — the correct reason is geographic scope.",
+        ground_truth: "CYEG is not covered — Alberta airport, outside BC scope",
+        tags: ["evaluator", "out_of_scope", "hallucination-guard"],
     },
 
     {
@@ -108,29 +108,7 @@ const EVAL_CASES: EvalCase[] = [
         tags: ["circuit", "altitude"],
     },
 
-    // ─── Evaluator cases ────────────────────────────────────────────────────────
-
-    {
-        id: "evaluator-no-icao",
-        question: "What is the tower frequency?",
-        expected_behavior:
-            "The question has no ICAO code and no aerodrome name. " +
-            "The evaluator must ask the pilot to provide the aerodrome's 4-letter ICAO code. " +
-            "The response must NOT attempt to answer a tower frequency question. " +
-            "The response must NOT invent or guess an aerodrome.",
-        tags: ["evaluator", "clarify"],
-    },
-
-    {
-        id: "evaluator-ambiguous-victoria",
-        question: "What is the circuit altitude at Victoria?",
-        expected_behavior:
-            "Victoria is ambiguous — it could refer to CYYJ (Victoria International) or CYWH (Victoria Harbour). " +
-            "The evaluator must ask the pilot to clarify which Victoria airport they mean. " +
-            "The response must mention both CYYJ and CYWH (or equivalent names). " +
-            "The response must NOT answer with a circuit altitude — that would be guessing.",
-        tags: ["evaluator", "clarify"],
-    },
+    // ─── Evaluator / decomposer cases ───────────────────────────────────────────
 
     {
         id: "evaluator-out-of-scope-non-bc",
@@ -158,7 +136,7 @@ const EVAL_CASES: EvalCase[] = [
         id: "multi-icao-avgas-near-vancouver",
         question: "Where can I find avgas near Vancouver?",
         expected_behavior:
-            "The evaluator must infer several Vancouver-area aerodromes and check fuel availability across them — this is a multi-aerodrome question. " +
+            "The decomposer must infer several Vancouver-area aerodromes and generate fuel sub-queries for each — this is a multi-aerodrome question. " +
             "The answer must confirm that CYVR (Vancouver International) has 100LL avgas. " +
             "The answer must confirm that CYXX (Abbotsford) has 100LL avgas. " +
             "The answer must confirm that CZBB (Boundary Bay) has 100LL avgas, available by truck or H24 cardlock. " +
@@ -167,19 +145,32 @@ const EVAL_CASES: EvalCase[] = [
             "An answer that invents fuel availability for aerodromes not in the CFS is WRONG.",
         ground_truth:
             "CYVR: FUEL MG-1, 100LL, JA, JA-1. CYXX: FUEL MG-1, 100LL, JA, JA-1. CZBB: FUEL 100LL (truck or H24 cardlock), JA-1. CYPK: FUEL 100LL (Cardlock).",
-        tags: ["fuel", "multi-icao", "evaluator", "inference"],
+        tags: ["fuel", "multi-icao", "decomposer", "inference"],
     },
 
     {
-        id: "evaluator-infer-vancouver",
+        id: "multi-section-aerodrome-and-general",
+        question: "What is the tower frequency at CYNJ and what does MF stand for?",
+        expected_behavior:
+            "This question spans two CFS sections: aerodrome data (CYNJ tower frequency) and General (MF abbreviation). " +
+            "The decomposer must generate two sub-queries — one targeting CYNJ and one targeting the General section. " +
+            "The answer must state 119.0 MHz as the CYNJ tower frequency. " +
+            "The answer must explain that MF stands for Mandatory Frequency, used at uncontrolled aerodromes. " +
+            "An answer that only addresses one of the two questions is incomplete.",
+        ground_truth: "CYNJ TWR 119.0 (V) 1630-0230Z; MF = Mandatory Frequency",
+        tags: ["multi-section", "decomposer", "frequency", "tower"],
+    },
+
+    {
+        id: "decomposer-infer-vancouver",
         question: "What is the tower frequency at Vancouver airport?",
         expected_behavior:
-            "The evaluator must infer CYVR from 'Vancouver airport' without asking for clarification — this is unambiguous. " +
+            "The decomposer must infer CYVR from 'Vancouver airport' without asking for clarification — this is unambiguous. " +
             "The pipeline must then answer with the CYVR tower frequencies: 118.7 (South) and 119.55 (North). " +
             "An answer that asks for the ICAO code is WRONG — the inference should be automatic. " +
             "An answer with incorrect frequencies or labeling the frequency as MF is also WRONG.",
         ground_truth: "TWR 118.7 (South) 119.55 (North)",
-        tags: ["evaluator", "inference", "frequency", "tower"],
+        tags: ["decomposer", "inference", "frequency", "tower"],
     },
 ];
 

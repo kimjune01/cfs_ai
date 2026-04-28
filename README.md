@@ -1,6 +1,6 @@
 # CFS British Columbia Assistant
 
-An AI-powered Q&A tool for Canadian pilots. Ask questions about aerodromes, circuit altitudes, radio frequencies, runway data, fuel availability, and more — all grounded in the NavCanada Canadian Flight Supplement (CFS).
+An AI-powered Q&A tool for Canadian users. Ask questions about aerodromes, circuit altitudes, radio frequencies, runway data, fuel availability, and more — all grounded in the NavCanada Canadian Flight Supplement (CFS).
 
 > **Note:** The CFS PDF is not included in this repo. NavCanada retains copyright over the CFS, so you must obtain your own copy and place it at `public/CFS.pdf`. For the same reason, this app cannot be deployed publicly.
 
@@ -8,33 +8,30 @@ An AI-powered Q&A tool for Canadian pilots. Ask questions about aerodromes, circ
 
 ## How it works
 
-The app is an agentic RAG pipeline. Every question is validated, then routed through vector search first — with Claude rephrasing queries for better retrieval — and escalated to vision only when the vector results are insufficient.
+The app is an agentic RAG pipeline with four stages: Evaluator → Decomposer → Fan-out Search → Synthesizer, with a vision fallback when vector results are insufficient.
 
 ```
 User question
       │
       ▼
  Evaluator (Claude — structured output)
- ├── No ICAO code?       ──► infer from name, or ask pilot to clarify
- ├── Multiple aerodromes?──► extract all ICAO codes, synthesize multi-part question
- ├── Ambiguous airport?  ──► ask pilot to pick (e.g. Victoria → CYYJ or CYWH)
- ├── Outside BC?         ──► out_of_scope
- ├── Off-topic?          ──► out_of_scope
- └── Ready?              ──► synthesize clean question with resolved ICAO
+ ├── Out of scope?  ──► helpful rejection explaining what CFS covers
+ └── Ready?         ──► continue
       │
       ▼
- Query rephrasing (Claude)
- └── Two queries per ICAO: aerodrome name + topic, and ICAO code + topic
+ Query Decomposer (Claude — structured output)
+ └── One sub-query per (aerodrome × topic) or (section × topic)
+     format: "<aerodrome or section name> <topic>"
+     e.g. "CYVR tower frequency", "General ATIS meaning"
       │
       ▼
- Vector search (LanceDB + jina-embeddings-v4) ×2 in parallel
- └── Pure ANN — normalized vectors, cosine similarity via L2
+ Fan-out search (parallel, Jina concurrency-limited)
+ └── One vector query per sub-query
       │
       ▼
- Decision (Claude)
- ├── Results explicitly answer the question? ──► answer from chunks
- ├── Results insufficient or ambiguous?      ──► escalate to vision
- └── Pilot repeating or doubting?            ──► escalate to vision
+ Synthesizer (Claude)
+ ├── Results good? ──► answer + source pages
+ └── Results weak? ──► escalate to vision
       │
       ▼ (when needed)
  Vision pipeline
@@ -46,9 +43,13 @@ User question
  Answer + source pages rendered inline (PDF.js)
 ```
 
-**Evaluator** — the first stage in the pipeline. Resolves or infers all ICAO codes (supports multi-aerodrome questions), rejects out-of-scope questions (non-BC aerodromes, weather, NOTAMs), and loops with clarifying questions until the request is unambiguous. Hands off a synthesized, self-contained question downstream.
+**Evaluator** — pure scope gate. Validates that the question is about BC aviation as covered by the CFS. Out-of-scope → helpful rejection. No section routing, no aerodrome extraction.
 
-**Decision** — runs after vector search with the retrieved chunks and conversation history. Answers directly if results are sufficient, or escalates to vision if confidence is low, the field label doesn't match, or the pilot is repeating/doubting a previous answer.
+**Query Decomposer** — single LLM call that does all query intelligence: identifies which aerodromes and CFS sections are relevant, resolves implicit references from conversation history, and produces one `<ref> <topic>` sub-query per (aerodrome or section) × topic pair. Also returns the aerodrome identifiers for vision fallback.
+
+**Fan-out search** — runs all sub-queries in parallel against the vector index (Jina API, concurrency-limited to 2). Results deduplicated by chunk text, keeping the highest score.
+
+**Synthesizer** — assesses result quality inline with answer generation. Answers directly from vector chunks when quality is good; triggers vision fallback when results don't explicitly cover what was asked.
 
 **No API key required** — the app uses Claude Code's existing keychain OAuth session. The Anthropic API key is explicitly stripped from child process environments to prevent it overriding keychain auth. Requires `claude` to be on `PATH`.
 
@@ -92,12 +93,15 @@ cfs_ai/
 │   └── lancedb/                        # Vector index
 └── src/
     ├── lib/
-    │   ├── types.ts                    # Shared types (Turn, TraceEvent, etc.)
-    │   ├── agentTools.ts               # Query rewriting, ICAO extraction, chunk formatting
+    │   ├── types.ts                    # Shared types (Turn, TraceEvent, VectorChunk, etc.)
+    │   ├── agentTools.ts               # Pure utilities: history formatting, deduplication
+    │   ├── evaluator.ts                # Evaluator: BC scope gate
+    │   ├── decomposer.ts               # Query decomposer: aerodrome/section classification + sub-query generation
+    │   ├── fanOut.ts                   # Fan-out search: concurrency-limited parallel vector queries
+    │   ├── synthesizer.ts              # Synthesizer: quality assessment + answer generation
     │   ├── vectorSearch.ts             # LanceDB search subprocess wrapper
     │   ├── visionSearch.ts             # PDF vision pipeline
-    │   ├── promptEvaluator.ts          # Question evaluator (ICAO inference, scope check)
-    │   └── agentLoop.ts                # Agent orchestration
+    │   └── agentLoop.ts                # Pipeline orchestration
     └── app/
         ├── api/chat/route.ts           # Streaming NDJSON endpoint
         ├── hooks/
@@ -158,19 +162,20 @@ The app will be available at `http://localhost:3000`.
 
 ## Evals
 
-The eval suite runs 14 golden Q&A cases through the full agent pipeline and uses Claude as a judge to verify answer quality. Cases cover tower vs. MF frequency labeling, fuel availability, circuit altitudes, hallucination guards, and evaluator behaviour (ICAO inference, ambiguous names, out-of-scope requests).
+The eval suite runs golden Q&A cases through the full agent pipeline and uses Claude as a judge to verify answer quality. Cases cover tower vs. MF frequency labeling, fuel availability, circuit altitudes, hallucination guards, out-of-scope rejection, multi-section fan-out, and decomposer inference.
 
 ```bash
-npm run eval                          # run all cases
-npm run eval -- --filter=regression   # run a tagged subset
-npm run eval -- --timeout=120000      # override per-case timeout (ms)
+npm run eval                              # run all cases
+npm run eval -- --id=cyvr-tower-freq      # run a single case by id
+npm run eval -- --filter=regression       # run a tagged subset
+npm run eval -- --timeout=120000          # override per-case timeout (ms)
 ```
 
 Exit code 0 = all pass, 1 = any failures.
 
 ## Usage tips
 
-- **Ask in plain English** — you don't need to know the ICAO code. "What's the circuit altitude at Pitt Meadows?" works just as well as `CYPK`. The evaluator infers the code or asks if it's ambiguous.
+- **Ask in plain English** — you don't need to know the ICAO code. "What's the circuit altitude at Pitt Meadows?" works just as well as `CYPK`. The decomposer resolves the name directly.
 - **Ask specific questions** — circuit altitude, tower frequency, fuel types, runway dimensions, lighting.
 - **Vision fallback is automatic** — the agent escalates to reading the actual PDF when it isn't confident in the vector results, or when you express doubt or ask to verify a previous answer.
 - **Dark mode** — toggle in the top-right corner. Preference is saved to localStorage.

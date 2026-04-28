@@ -1,65 +1,11 @@
-import {
-    buildDecisionPrompt,
-    deduplicateChunks,
-    extractICAOCodes,
-    rephraseMultipleQueries,
-} from "./agentTools";
+import { truncateHistory } from "./agentTools";
+import { decomposeQueries } from "./decomposer";
 import { emit, runWithEmit } from "./emitContext";
-import { runEvaluationGate } from "./promptEvaluator";
-import { DECISION_PROMPT } from "./prompts";
-import { DECISION_SCHEMA } from "./schemas";
-import type { AgentResult, EmitFn, Turn, VectorChunk } from "./types";
-import { runClaude } from "./utils/claudeUtils";
-import { vectorSearch } from "./vectorSearch";
+import { evaluate } from "./evaluator";
+import { fanOutSearch } from "./fanOut";
+import { synthesize } from "./synthesizer";
+import type { AgentResult, EmitFn, Turn } from "./types";
 import { visionSearch } from "./visionSearch";
-
-const MAX_HISTORY_TURNS = 10;
-
-type Decision = { action: "answer"; text: string; pages: number[] } | { action: "vision" };
-
-const truncateHistory = (history: Turn[]): Turn[] => history.slice(-MAX_HISTORY_TURNS);
-
-const runVectorSearch = async (
-    question: string,
-    icaos: string[],
-    signal?: AbortSignal,
-): Promise<{ queries: string[]; chunks: VectorChunk[] }> => {
-    emit({ type: "rephrasing" });
-    const queries = await rephraseMultipleQueries(question, icaos, signal);
-    const results = await Promise.all(queries.map((q) => vectorSearch(q, signal)));
-    const chunks = deduplicateChunks(results);
-    const topScore = Math.max(0, ...results.map((r) => r.topScore));
-    emit({ type: "vector_results", count: chunks.length, topScore });
-    return { queries, chunks };
-};
-
-const runDecision = async (
-    question: string,
-    history: Turn[],
-    chunks: VectorChunk[],
-    signal?: AbortSignal,
-): Promise<Decision> => {
-    emit({ type: "deciding" });
-    const decision = await runClaude<Decision>(
-        buildDecisionPrompt(history, question, chunks),
-        signal,
-        DECISION_PROMPT,
-        DECISION_SCHEMA,
-    );
-    emit({ type: "decision", action: decision.action });
-    if (decision.action === "answer") emit({ type: "synthesize" });
-    return decision;
-};
-
-const runVisionSearch = async (
-    question: string,
-    icaos: string[],
-    signal?: AbortSignal,
-): Promise<{ answer: string; sourcePages: number[] }> => {
-    const result = await visionSearch(icaos, question, signal);
-    emit({ type: "synthesize" });
-    return result;
-};
 
 const runAgentLoop = async (
     question: string,
@@ -70,29 +16,40 @@ const runAgentLoop = async (
     runWithEmit(async () => {
         const truncated = truncateHistory(history);
 
-        const gate = await runEvaluationGate(question, truncated, signal);
-        if (gate.handled) return gate.result;
+        // Phase 1: Evaluate scope
+        const evaluation = await evaluate(question, truncated, signal);
+        if (evaluation.status === "out_of_scope") {
+            const answer = `This question is outside the scope of this CFS tool.\n\n${evaluation.reason}`;
+            emit({ type: "done", answer, sourcePages: [] });
+            return { answer, sourcePages: [], searchTerms: [], toolsCalled: [] };
+        }
 
-        const icaos = extractICAOCodes(gate.resolvedQuestion);
-        const { queries, chunks } = await runVectorSearch(gate.resolvedQuestion, icaos, signal);
-        const decision = await runDecision(gate.resolvedQuestion, truncated, chunks, signal);
+        // Phase 2: Query decomposition
+        const { queries, aerodromeRefs } = await decomposeQueries(question, truncated, signal);
 
-        if (decision.action === "answer") {
-            emit({ type: "done", answer: decision.text, sourcePages: decision.pages });
+        // Phase 3: Fan-out search
+        const chunks = await fanOutSearch(queries, signal);
+
+        // Phase 4: Synthesizer
+        const synthesis = await synthesize(question, truncated, chunks, signal);
+        if (synthesis.quality === "good") {
+            emit({ type: "done", answer: synthesis.answer, sourcePages: synthesis.sourcePages });
             return {
-                answer: decision.text,
-                sourcePages: decision.pages,
+                answer: synthesis.answer,
+                sourcePages: synthesis.sourcePages,
                 searchTerms: queries,
                 toolsCalled: ["vector"],
             };
         }
 
-        const vision = await runVisionSearch(gate.resolvedQuestion, icaos, signal);
+        // Phase 5: Vision fallback
+        const visionTerms = aerodromeRefs.length > 0 ? aerodromeRefs : [question];
+        const vision = await visionSearch(visionTerms, question, signal);
         emit({ type: "done", answer: vision.answer, sourcePages: vision.sourcePages });
         return {
             answer: vision.answer,
             sourcePages: vision.sourcePages,
-            searchTerms: [...queries, ...icaos],
+            searchTerms: [...queries, ...visionTerms],
             toolsCalled: ["vector", "vision"],
         };
     }, emitFn);

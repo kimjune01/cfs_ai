@@ -7,6 +7,7 @@
  * Usage:
  *   npm run eval                         # run all cases
  *   npm run eval -- --filter=regression  # run tagged subset
+ *   npm run eval -- --id=cyvr-tower-freq # run a single case by id
  *   npm run eval -- --timeout=90000      # override per-case timeout (ms)
  *
  * Exit code: 0 = all pass, 1 = any failures
@@ -24,6 +25,7 @@ const { ANTHROPIC_API_KEY: _key, ...claudeEnv } = process.env;
 const args = process.argv.slice(2);
 const TIMEOUT_MS = parseInt(args.find((a) => a.startsWith("--timeout="))?.split("=")[1] ?? "90000");
 const FILTER_TAG = args.find((a) => a.startsWith("--filter="))?.split("=")[1];
+const FILTER_ID = args.find((a) => a.startsWith("--id="))?.split("=")[1];
 
 // ─── Judge ───────────────────────────────────────────────────────────────────
 
@@ -32,6 +34,16 @@ interface JudgeResult {
     reason: string;
     fatal_error: string | null;
 }
+
+const JUDGE_SCHEMA = {
+    type: "object",
+    properties: {
+        verdict: { type: "string", enum: ["PASS", "FAIL"] },
+        reason: { type: "string" },
+        fatal_error: { type: "string" },
+    },
+    required: ["verdict", "reason"],
+};
 
 const buildJudgePrompt = (evalCase: EvalCase, actualAnswer: string): string => {
     return `You are an aviation accuracy judge evaluating an AI assistant's answer about the Canadian Flight Supplement (CFS).
@@ -54,29 +66,25 @@ Rules:
 - Label errors are ALWAYS failures: calling an MF/RADIO frequency a "tower" frequency is wrong even if the number is correct
 - Hallucinated data not supported by the expected behavior is a failure
 - A "not found" response when data IS expected is a failure
-- A "not found" response when data IS NOT expected (e.g. airport not in DB) is correct
+- A "not found" response when data IS NOT expected (e.g. aerodrome not in DB) is correct
 
-Return ONLY this JSON object, no other text:
-{
-  "verdict": "PASS",
-  "reason": "one or two sentences",
-  "fatal_error": null
-}
-
-or:
-
-{
-  "verdict": "FAIL",
-  "reason": "one or two sentences explaining what was wrong",
-  "fatal_error": "quote the specific wrong statement from the actual answer"
-}`;
+Set verdict to PASS or FAIL. For FAIL, set fatal_error to the specific wrong statement from the actual answer.`;
 };
 
 const callJudge = (evalCase: EvalCase, actualAnswer: string): Promise<JudgeResult> => {
     return new Promise((resolve) => {
         const proc = spawn(
             "claude",
-            ["--enable-auto-mode", "--print", "--output-format", "json", "--model", "sonnet"],
+            [
+                "--enable-auto-mode",
+                "--print",
+                "--output-format",
+                "json",
+                "--model",
+                "sonnet",
+                "--json-schema",
+                JSON.stringify(JUDGE_SCHEMA),
+            ],
             { stdio: ["pipe", "pipe", "pipe"], env: claudeEnv },
         );
 
@@ -84,10 +92,15 @@ const callJudge = (evalCase: EvalCase, actualAnswer: string): Promise<JudgeResul
         proc.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
         proc.on("close", () => {
             try {
-                const outer = JSON.parse(stdout) as { result: string };
-                const jsonStr = outer.result.match(/\{[\s\S]*\}/)?.[0];
-                if (!jsonStr) throw new Error("no JSON in judge output");
-                resolve(JSON.parse(jsonStr) as JudgeResult);
+                const parsed = JSON.parse(stdout) as {
+                    is_error: boolean;
+                    structured_output?: JudgeResult;
+                };
+                if (parsed.is_error || !parsed.structured_output) throw new Error("judge error");
+                resolve({
+                    ...parsed.structured_output,
+                    fatal_error: parsed.structured_output.fatal_error ?? null,
+                });
             } catch {
                 resolve({
                     verdict: "ERROR",
@@ -151,11 +164,19 @@ const runCase = async (evalCase: EvalCase): Promise<CaseResult> => {
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 const main = async () => {
-    const cases = FILTER_TAG ? EVAL_CASES.filter((c) => c.tags?.includes(FILTER_TAG)) : EVAL_CASES;
-
-    if (cases.length === 0) {
-        console.error(`No cases match filter: ${FILTER_TAG}`);
-        process.exit(1);
+    let cases = EVAL_CASES;
+    if (FILTER_ID) {
+        cases = EVAL_CASES.filter((c) => c.id === FILTER_ID);
+        if (cases.length === 0) {
+            console.error(`No case with id: ${FILTER_ID}`);
+            process.exit(1);
+        }
+    } else if (FILTER_TAG) {
+        cases = EVAL_CASES.filter((c) => c.tags?.includes(FILTER_TAG));
+        if (cases.length === 0) {
+            console.error(`No cases match filter: ${FILTER_TAG}`);
+            process.exit(1);
+        }
     }
 
     console.log(

@@ -1,3 +1,20 @@
+type CfsSection =
+    | "GENERAL"
+    | "AERODROME"
+    | "PLANNING"
+    | "RADIO_NAVIGATION_AND_COMMUNICATIONS"
+    | "MILITARY_FLIGHT_DATA_AND_PROCEDURES"
+    | "EMERGENCY";
+
+const SECTIONS: Record<CfsSection, string> = {
+    GENERAL: "General",
+    AERODROME: "Aerodrome",
+    PLANNING: "Planning",
+    RADIO_NAVIGATION_AND_COMMUNICATIONS: "Radio Navigation and Communications",
+    MILITARY_FLIGHT_DATA_AND_PROCEDURES: "Military Flight Data and Procedures",
+    EMERGENCY: "Emergency",
+};
+
 type Turn = {
     role: "user" | "assistant";
     content: string;
@@ -5,18 +22,15 @@ type Turn = {
 };
 
 type TraceEvent =
-    | { type: "evaluating" } // 1. evaluator runs
-    | { type: "clarification"; questions: string[] } // 1a. evaluator needs more info
-    | { type: "rephrasing" } // 2. query rewriting
-    | { type: "vector_search"; query: string } // 3. one per rephrase query
-    | { type: "vector_results"; count: number; topScore: number } // 3a. results back
-    | { type: "deciding" } // 4. decision prompt running
-    | { type: "decision"; action: "answer" | "vision" } // 4a. verdict
-    | { type: "vision_search"; terms: string[] } // 5. vision path: locating pages
-    | { type: "vision_reading"; pages: number[] } // 5a. vision path: reading pages
-    | { type: "synthesize" } // 6. composing final answer
-    | { type: "done"; answer: string; sourcePages: number[] } // 7. complete
-    | { type: "error"; message: string }; // any stage
+    | { type: "routing" }
+    | { type: "decomposing" }
+    | { type: "searching"; query: string }
+    | { type: "search_results"; count: number }
+    | { type: "synthesizing" }
+    | { type: "vision_search"; terms: string[] }
+    | { type: "vision_reading"; pages: number[] }
+    | { type: "done"; answer: string; sourcePages: number[] }
+    | { type: "error"; message: string };
 
 type EmitFn = (event: TraceEvent) => void;
 
@@ -35,4 +49,29 @@ type AgentResult = {
     toolsCalled: ("vector" | "vision")[];
 };
 
-export type { AgentResult, EmitFn, TraceEvent, Turn, VectorChunk };
+type EvaluatorResult = {
+    status: "ready" | "out_of_scope";
+    reason: string;
+};
+
+type DecomposeResult = {
+    queries: string[];
+    aerodromeRefs: string[];
+};
+
+type SynthesizerResult =
+    | { quality: "good"; answer: string; sourcePages: number[] }
+    | { quality: "weak" };
+
+export { SECTIONS };
+export type {
+    AgentResult,
+    CfsSection,
+    DecomposeResult,
+    EmitFn,
+    EvaluatorResult,
+    SynthesizerResult,
+    TraceEvent,
+    Turn,
+    VectorChunk,
+};
