@@ -136,9 +136,37 @@ const executeIntent = (step: StructuredStep): LayerResult => {
     }
 
     try {
-        const icao = step.icao.toUpperCase();
-        const stmt = queryFn(icao, step.filter);
-        const rows = stmt.all() as Record<string, unknown>[];
+        let icao = step.icao.toUpperCase();
+        let stmt = queryFn(icao, step.filter);
+        let rows = stmt.all() as Record<string, unknown>[];
+
+        if (rows.length === 0) {
+            const db = getDb();
+            const resolved = db
+                .prepare("SELECT icao FROM aerodromes WHERE LOWER(name) LIKE ?")
+                .get(`%${step.icao.toLowerCase()}%`) as { icao: string } | undefined;
+            if (resolved && resolved.icao !== icao) {
+                icao = resolved.icao;
+                stmt = queryFn(icao, step.filter);
+                rows = stmt.all() as Record<string, unknown>[];
+            }
+        }
+
+        if (rows.length === 0 && step.filter && step.intent === "fuel") {
+            const allFuel = INTENT_QUERIES.fuel(icao).all() as Record<string, unknown>[];
+            if (allFuel.length > 0) {
+                const available = allFuel.map((r) => String(r.fuel_type)).join(", ");
+                const sourcePages = allFuel
+                    .map((r) => r.source_page as number | null)
+                    .filter((p): p is number => p != null);
+                return {
+                    status: "hit",
+                    answer: `${step.filter} is not available. Available fuel: ${available}`,
+                    sourcePages: [...new Set(sourcePages)],
+                    route: "structured",
+                };
+            }
+        }
 
         if (rows.length === 0) {
             return { status: "empty", sourcePages: [], route: "structured" };
@@ -153,6 +181,10 @@ const executeIntent = (step: StructuredStep): LayerResult => {
         ];
 
         const answer = formatRows(step.intent, rows);
+
+        if (answer.includes("not published")) {
+            return { status: "empty", sourcePages, route: "structured" };
+        }
 
         return { status: "hit", answer, sourcePages, route: "structured" };
     } catch (e) {

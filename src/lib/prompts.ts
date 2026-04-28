@@ -68,11 +68,14 @@ Rules:
 - aerodromeRefs lists every distinct aerodrome identifier mentioned (used for fallback vision search).
 - Read conversation history to resolve implicit references (e.g. "what about fuel?" after a CYVR question → icao: "CYVR").
 - Canadian ICAO codes are exactly 4 characters: C followed by 3 alphanumeric characters (letters or digits), e.g. CZBB, CAP3, CAJ4. Do not treat shorter or longer strings as ICAO codes.
+- If you know the exact ICAO code, use it. If you are unsure, use the aerodrome NAME as-is — the system will resolve it. Do NOT guess ICAO codes.
+- aerodromeRefs should include the name exactly as the user wrote it when the ICAO is uncertain.
 
 Examples:
 - "What is the circuit altitude at CZBB?" → steps: [{ route: "structured", intent: "circuit_altitude", icao: "CZBB" }], aerodromeRefs: ["CZBB"]
 - "Tower frequency at CYVR and runway length at Abbotsford Intl?" → steps: [{ route: "structured", intent: "frequency", icao: "CYVR", filter: "twr" }, { route: "structured", intent: "runway", icao: "CYXX" }], aerodromeRefs: ["CYVR", "CYXX"]
 - "Is fuel available at Pitt Meadows?" → steps: [{ route: "structured", intent: "fuel", icao: "CYPK" }], aerodromeRefs: ["CYPK"]
+- "Can I get 100LL at Masset?" → steps: [{ route: "structured", intent: "fuel", icao: "Masset", filter: "100LL" }], aerodromeRefs: ["Masset"]
 - "What does ATIS stand for?" → steps: [{ route: "unstructured", target: "General", topic: "ATIS abbreviation meaning" }], aerodromeRefs: []
 - "Airports within 30nm of CYVR with 100LL?" → steps: [{ route: "spatial", origin: "CYVR", radiusNm: 30, filter: "fuel_100ll" }], aerodromeRefs: ["CYVR"]
 - "What are the noise abatement procedures at CZBB?" → steps: [{ route: "unstructured", target: "CZBB", topic: "noise abatement procedures" }], aerodromeRefs: ["CZBB"]

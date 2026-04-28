@@ -68,16 +68,33 @@ const routeStructured = async (
     signal?: AbortSignal,
 ): Promise<{ result: LayerResult; tools: AgentResult["toolsCalled"] }> => {
     emit({ type: "structured_query", intent: step.intent, icao: step.icao });
-    const result = executeIntent(step);
+    let result = executeIntent(step);
+
+    if (result.status !== "hit" && aerodromeRefs.length > 0) {
+        for (const ref of aerodromeRefs) {
+            const retried = executeIntent({ ...step, icao: ref });
+            if (retried.status === "hit") {
+                result = retried;
+                break;
+            }
+        }
+    }
+
     emit({ type: "layer_result", route: "structured", status: result.status });
 
     if (result.status === "hit") {
         return { result, tools: ["structured"] };
     }
 
-    // Fallback to remarks
-    emit({ type: "remarks_lookup", target: step.icao });
-    const remarks = await remarksSearch(step.icao, `${step.intent} ${step.filter ?? ""}`.trim(), signal);
+    // Fallback to remarks — try both the step ICAO and aerodromeRefs
+    const remarksTargets = [step.icao, ...aerodromeRefs.filter((r) => r !== step.icao)];
+    let remarks: LayerResult = { status: "empty", sourcePages: [], route: "remarks" };
+    for (const target of remarksTargets) {
+        emit({ type: "remarks_lookup", target });
+        const remarksQuery = `${step.intent.replace(/_/g, " ")} ${step.filter ?? ""}`.trim();
+        remarks = await remarksSearch(target, remarksQuery, signal);
+        if (remarks.status === "hit") break;
+    }
     emit({ type: "layer_result", route: "remarks", status: remarks.status });
 
     if (remarks.status === "hit") {

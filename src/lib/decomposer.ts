@@ -4,6 +4,31 @@ import { QUERY_DECOMPOSER_SYSTEM_PROMPT } from "./prompts";
 import { DECOMPOSER_V2_SCHEMA } from "./schemas";
 import type { DecomposeResult, QueryStep, Turn } from "./types";
 import { runClaude } from "./utils/claudeUtils";
+import { getDb } from "./utils/db";
+
+const ICAO_RE = /^C[A-Z0-9]{3}$/;
+
+const resolveIcao = (identifier: string): string => {
+    if (ICAO_RE.test(identifier.toUpperCase())) {
+        try {
+            const db = getDb();
+            const exact = db
+                .prepare("SELECT icao FROM aerodromes WHERE icao = ?")
+                .get(identifier.toUpperCase()) as { icao: string } | undefined;
+            if (exact) return exact.icao;
+        } catch { /* DB not available, pass through */ }
+    }
+
+    try {
+        const db = getDb();
+        const byName = db
+            .prepare("SELECT icao FROM aerodromes WHERE LOWER(name) LIKE ?")
+            .get(`%${identifier.toLowerCase()}%`) as { icao: string } | undefined;
+        if (byName) return byName.icao;
+    } catch { /* DB not available */ }
+
+    return identifier;
+};
 
 const decomposeQueries = async (
     question: string,
@@ -41,12 +66,26 @@ const decomposeQueries = async (
         }
     }
 
-    const steps =
+    const resolvedSteps: QueryStep[] = (
         validSteps.length > 0
             ? validSteps
-            : [{ route: "complex" as const, subQueries: [question] }];
+            : [{ route: "complex" as const, subQueries: [question] }]
+    ).map((step) => {
+        switch (step.route) {
+            case "structured":
+                return { ...step, icao: resolveIcao(step.icao) };
+            case "spatial":
+                return { ...step, origin: resolveIcao(step.origin) };
+            case "unstructured":
+                return { ...step, target: resolveIcao(step.target) };
+            default:
+                return step;
+        }
+    });
 
-    return { steps, aerodromeRefs: raw.aerodromeRefs ?? [] };
+    const resolvedRefs = (raw.aerodromeRefs ?? []).map(resolveIcao);
+
+    return { steps: resolvedSteps, aerodromeRefs: resolvedRefs };
 };
 
 export { decomposeQueries };
