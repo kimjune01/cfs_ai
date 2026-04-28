@@ -172,6 +172,60 @@ const EVAL_CASES: EvalCase[] = [
         ground_truth: "TWR 118.7 (South) 119.55 (North)",
         tags: ["decomposer", "inference", "frequency", "tower"],
     },
+
+    // ─── Composite pipe cases (cross-result reasoning) ─────────────────────────
+
+    {
+        id: "composite-fuel-and-frequency",
+        question: "I need to refuel at Pitt Meadows — is 100LL available and what frequency should I call on arrival?",
+        expected_behavior:
+            "This decomposes into two steps: fuel lookup at CYPK and frequency lookup at CYPK. " +
+            "The composite pipe must confirm 100LL is available (Cardlock) AND provide the correct arrival frequency. " +
+            "CYPK has TWR 126.3 (15-07Z) and MF 126.3 (07-15Z). " +
+            "A correct composite answer explains the time-based distinction and confirms fuel. " +
+            "An answer that only addresses one of the two parts is incomplete.",
+        ground_truth: "FUEL 100LL (Cardlock); TWR Pitt 126.3 (V) 15-07Z; MF tfc 126.3 07-15Z",
+        tags: ["composite", "fuel", "frequency"],
+    },
+
+    {
+        id: "composite-runway-suitability",
+        question: "Can a King Air land at Alert Bay? What's the runway like?",
+        expected_behavior:
+            "This requires cross-result reasoning: runway data lookup at CYAL, then inference about aircraft suitability. " +
+            "CYAL has Rwy 09/27, 2985 ft, ASPH. A King Air (BE200) typically needs ~2500 ft for landing. " +
+            "A correct answer states the runway data AND reasons about whether 2985 ft is sufficient — it is marginal but possible under good conditions. " +
+            "An answer that only lists the runway data without addressing the aircraft suitability question is incomplete. " +
+            "An answer that confidently says 'yes' without noting the margins or conditions is oversimplified.",
+        ground_truth: "Rwy 09/27 2985x75 ASPH — marginal for King Air, depends on conditions",
+        tags: ["composite", "inference", "runway"],
+    },
+
+    {
+        id: "composite-compare-two-aerodromes",
+        question: "Compare the fuel options at Anahim Lake and Burns Lake",
+        expected_behavior:
+            "This decomposes into two fuel lookups: CAJ4 (Anahim Lake) and CYPZ (Burns Lake). " +
+            "CAJ4 has 100LL and JA, self-serve VISA & Mastercard. " +
+            "CYPZ has 100LL and JA, 1 hr prior notice required. " +
+            "A correct composite answer presents both side by side and notes the operational difference: " +
+            "CAJ4 is self-serve (available anytime), CYPZ requires 1 hour prior notice. " +
+            "An answer that lists them separately without comparison misses the point of the question.",
+        ground_truth: "CAJ4: 100LL/JA self-serve; CYPZ: 100LL/JA 1hr PN",
+        tags: ["composite", "comparison", "fuel"],
+    },
+
+    {
+        id: "composite-flight-planning",
+        question: "I'm flying from Atlin to Bella Bella — what are the runway lengths at both ends?",
+        expected_behavior:
+            "Two structured lookups: CYSQ (Atlin) runway and CBBC (Bella Bella) runway. " +
+            "CYSQ: Rwy 01/19, 3949 ft, gravel. CBBC: Rwy 13/31, 3702 ft, ASPH. " +
+            "A correct composite answer presents both and may note that Atlin is gravel while Bella Bella is paved. " +
+            "The answer should present this as flight planning context, not just two disconnected facts.",
+        ground_truth: "CYSQ: 01/19 3949ft gravel; CBBC: 13/31 3702ft ASPH",
+        tags: ["composite", "flight-planning", "runway"],
+    },
 ];
 
 export type { EvalCase };
