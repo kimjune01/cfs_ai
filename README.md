@@ -34,16 +34,16 @@ User question
  └── Results weak? ──► escalate to vision
       │
       ▼ (when needed)
- Vision pipeline
+ Vision pipeline (structured output)
  ├── pdftotext → find aerodrome pages by term
  ├── pdftoppm → render pages to PNG
- └── Claude reads images → ground-truth answer
+ └── Claude reads images → { answer, sourcePages }
       │
       ▼
  Answer + source pages rendered inline (PDF.js)
 ```
 
-**Evaluator** — pure scope gate. Validates that the question is about BC aviation as covered by the CFS. Out-of-scope → helpful rejection. No section routing, no aerodrome extraction.
+**Evaluator** — pure scope gate. Validates that the question is about BC aviation as covered by the CFS, or about one of the five CFS-wide sections (General, Planning, Radio Navigation and Communications, Military Flight Data and Procedures, Emergency). Out-of-scope → helpful rejection. No section routing, no aerodrome extraction.
 
 **Query Decomposer** — single LLM call that does all query intelligence: identifies which aerodromes and CFS sections are relevant, resolves implicit references from conversation history, and produces one `<ref> <topic>` sub-query per (aerodrome or section) × topic pair. Also returns the aerodrome identifiers for vision fallback.
 

@@ -13,9 +13,8 @@ const SYNTHESIZER_SCHEMA = {
         quality: { type: "string", enum: ["good", "weak"] },
         answer: { type: "string" },
         sourcePages: { type: "array", items: { type: "integer" } },
-        reason: { type: "string" },
     },
-    required: ["quality", "reason"],
+    required: ["quality"],
 };
 
 const QUERY_DECOMPOSER_SCHEMA = {
@@ -37,4 +36,13 @@ const QUERY_DECOMPOSER_SCHEMA = {
     required: ["subQueries", "aerodromeRefs"],
 };
 
-export { EVALUATOR_SCHEMA, QUERY_DECOMPOSER_SCHEMA, SYNTHESIZER_SCHEMA };
+const VISION_SCHEMA = {
+    type: "object",
+    properties: {
+        answer: { type: "string" },
+        sourcePages: { type: "array", items: { type: "integer" } },
+    },
+    required: ["answer", "sourcePages"],
+};
+
+export { EVALUATOR_SCHEMA, QUERY_DECOMPOSER_SCHEMA, SYNTHESIZER_SCHEMA, VISION_SCHEMA };

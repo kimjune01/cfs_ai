@@ -2,20 +2,17 @@ import { spawn } from "child_process";
 
 import { emit } from "./emitContext";
 import { VISION_SYSTEM_PROMPT } from "./prompts";
-import {
-    getPdfPages,
-    largestCluster,
-    parseSourceCitation,
-    renderPages,
-    searchPages,
-} from "./utils/pdfUtils";
+import { VISION_SCHEMA } from "./schemas";
+import { getPdfPages, largestCluster, renderPages, searchPages } from "./utils/pdfUtils";
 import { attachAbort, CLAUDE_BIN, claudeEnv } from "./utils/processUtils";
+
+type VisionResult = { answer: string; sourcePages: number[] };
 
 const runClaudeVision = (
     imageBlocks: object[],
     question: string,
     signal?: AbortSignal,
-): Promise<string> =>
+): Promise<VisionResult> =>
     new Promise((resolve, reject) => {
         const proc = spawn(
             CLAUDE_BIN,
@@ -31,6 +28,8 @@ const runClaudeVision = (
                 "sonnet",
                 "--system-prompt",
                 VISION_SYSTEM_PROMPT,
+                "--json-schema",
+                JSON.stringify(VISION_SCHEMA),
             ],
             { stdio: ["pipe", "pipe", "pipe"], env: claudeEnv },
         );
@@ -42,7 +41,10 @@ const runClaudeVision = (
                 type: "user",
                 message: {
                     role: "user",
-                    content: [...imageBlocks, { type: "text", text: question }],
+                    content: [
+                        ...imageBlocks,
+                        { type: "text", text: `<question>\n${question}\n</question>` },
+                    ],
                 },
             }) + "\n";
 
@@ -50,7 +52,12 @@ const runClaudeVision = (
         proc.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
         proc.on("close", (code) => {
             if (signal?.aborted) return reject(new DOMException("Aborted", "AbortError"));
-            type StreamResult = { type: string; subtype: string; result: string };
+            type StreamResult = {
+                type: string;
+                subtype: string;
+                result: string;
+                structured_output?: VisionResult;
+            };
             const result = stdout
                 .split("\n")
                 .filter(Boolean)
@@ -64,7 +71,7 @@ const runClaudeVision = (
                 .filter((obj): obj is StreamResult => obj !== null)
                 .find((obj) => obj.type === "result" && obj.subtype === "success");
 
-            if (result) resolve(result.result.trim());
+            if (result?.structured_output) resolve(result.structured_output);
             else reject(new Error(`No result. Exit ${code}. Output: ${stdout.slice(0, 300)}`));
         });
 
@@ -104,9 +111,8 @@ const visionSearch = async (
     ]);
 
     emit({ type: "vision_reading", pages: entryPages });
-    const full = await runClaudeVision(imageBlocks, question, signal);
-    const { answer, pages } = parseSourceCitation(full, entryPages);
-    return { answer, sourcePages: pages };
+    const { answer, sourcePages } = await runClaudeVision(imageBlocks, question, signal);
+    return { answer, sourcePages };
 };
 
 export { visionSearch };

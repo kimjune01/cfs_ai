@@ -6,11 +6,10 @@ const truncateHistory = (history: Turn[]): Turn[] => history.slice(-MAX_HISTORY_
 
 const formatHistoryForPrompt = (history: Turn[]): string => {
     if (history.length === 0) return "";
-    return (
-        "Prior conversation:\n" +
-        history.map((t) => `${t.role === "user" ? "User" : "Assistant"}: ${t.content}`).join("\n") +
-        "\n\n"
-    );
+    const turns = history
+        .map((t) => `${t.role === "user" ? "User" : "Assistant"}: ${t.content}`)
+        .join("\n");
+    return `<conversation_history>\n${turns}\n</conversation_history>\n\n`;
 };
 
 const deduplicateChunks = (results: { chunks: VectorChunk[] }[]): VectorChunk[] => {

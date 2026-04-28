@@ -28,7 +28,9 @@ const synthesize = async (
     emit({ type: "synthesizing" });
 
     const prompt =
-        formatHistoryForPrompt(history) + `Question: ${question}\n\n` + formatVectorChunks(chunks);
+        formatHistoryForPrompt(history) +
+        `<question>\n${question}\n</question>\n\n` +
+        formatVectorChunks(chunks);
 
     const raw = await runClaude<{ quality: string; answer?: string; sourcePages?: number[] }>(
         prompt,

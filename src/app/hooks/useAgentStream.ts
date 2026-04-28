@@ -72,6 +72,11 @@ const useAgentStream = () => {
             answer = "Unable to reach the server. Please try again.";
         }
 
+        // Stream closed without a `done` event (e.g. server aborted mid-vision).
+        if (!answer && !traceEvents.some((e) => e.type === "done" || e.type === "error")) {
+            answer = "The request was interrupted. Please try again.";
+        }
+
         setState({ loading: false, liveStatus: "" });
         return { answer, sourcePages, traceEvents };
     };
