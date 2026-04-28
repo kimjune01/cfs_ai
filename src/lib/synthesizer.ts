@@ -32,12 +32,12 @@ const synthesize = async (
         `<question>\n${question}\n</question>\n\n` +
         formatVectorChunks(chunks);
 
-    const raw = await runClaude<{ quality: string; answer?: string; sourcePages?: number[] }>(
+    const raw = await runClaude<{ quality: string; answer?: string; sourcePages?: number[] }>({
         prompt,
         signal,
-        SYNTHESIZER_SYSTEM_PROMPT,
-        SYNTHESIZER_SCHEMA,
-    );
+        systemPrompt: SYNTHESIZER_SYSTEM_PROMPT,
+        schema: SYNTHESIZER_SCHEMA,
+    });
 
     if (raw.quality === "good" && typeof raw.answer === "string" && raw.answer.length > 0) {
         return { quality: "good", answer: raw.answer, sourcePages: raw.sourcePages ?? [] };

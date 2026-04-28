@@ -5,30 +5,34 @@ import { attachAbort, CLAUDE_BIN, claudeEnv } from "./processUtils";
 const CLAUDE_TIMEOUT_MS = 60_000;
 const CLAUDE_MAX_RETRIES = 1;
 
-const runClaudeOnce = <T = string>(
-    prompt: string,
-    signal?: AbortSignal,
-    systemPrompt?: string,
-    schema?: object,
-): Promise<T> =>
+type ClaudeOptions = {
+    prompt: string;
+    signal?: AbortSignal;
+    systemPrompt?: string;
+    schema?: object;
+    model?: "sonnet" | "haiku";
+};
+
+const runClaudeOnce = <T = string>(opts: ClaudeOptions): Promise<T> =>
     new Promise((resolve, reject) => {
+        const model = opts.model ?? "sonnet";
         const args = [
             "--enable-auto-mode",
             "--print",
             "--output-format",
             "json",
             "--model",
-            "sonnet",
+            model,
         ];
-        if (systemPrompt) args.push("--system-prompt", systemPrompt);
-        if (schema) args.push("--json-schema", JSON.stringify(schema));
+        if (opts.systemPrompt) args.push("--system-prompt", opts.systemPrompt);
+        if (opts.schema) args.push("--json-schema", JSON.stringify(opts.schema));
         const proc = spawn(CLAUDE_BIN, args, { stdio: ["pipe", "pipe", "pipe"], env: claudeEnv });
 
-        if (signal) attachAbort(proc, signal);
+        if (opts.signal) attachAbort(proc, opts.signal);
 
         const timer = setTimeout(() => {
             proc.kill();
-            reject(new Error("Claude timed out after 60s"));
+            reject(new Error(`Claude timed out after 60s`));
         }, CLAUDE_TIMEOUT_MS);
 
         let stdout = "";
@@ -37,7 +41,7 @@ const runClaudeOnce = <T = string>(
         proc.stderr.on("data", (d: Buffer) => (stderr += d.toString()));
         proc.on("close", (code) => {
             clearTimeout(timer);
-            if (signal?.aborted) return reject(new DOMException("Aborted", "AbortError"));
+            if (opts.signal?.aborted) return reject(new DOMException("Aborted", "AbortError"));
             try {
                 const parsed = JSON.parse(stdout) as {
                     is_error: boolean;
@@ -45,33 +49,30 @@ const runClaudeOnce = <T = string>(
                     structured_output?: T;
                 };
                 if (parsed.is_error) return reject(new Error(`Claude: ${parsed.result}`));
-                resolve((schema ? parsed.structured_output : parsed.result.trim()) as T);
+                if (opts.schema && parsed.structured_output == null) {
+                    return reject(
+                        new Error(`Claude returned no structured output: ${parsed.result.slice(0, 200)}`),
+                    );
+                }
+                resolve(
+                    (opts.schema ? parsed.structured_output : parsed.result.trim()) as T,
+                );
             } catch {
                 const detail = stderr.slice(0, 200) || stdout.slice(0, 200);
                 reject(new Error(`claude exited ${code}: ${detail}`));
             }
         });
-        proc.stdin.write(prompt);
+        proc.stdin.write(opts.prompt);
         proc.stdin.end();
     });
 
-function runClaude(prompt: string, signal?: AbortSignal, systemPrompt?: string): Promise<string>;
-function runClaude<T>(
-    prompt: string,
-    signal: AbortSignal | undefined,
-    systemPrompt: string | undefined,
-    schema: object,
-): Promise<T>;
-async function runClaude<T = string>(
-    prompt: string,
-    signal?: AbortSignal,
-    systemPrompt?: string,
-    schema?: object,
-): Promise<T | string> {
+function runClaude(opts: ClaudeOptions): Promise<string>;
+function runClaude<T>(opts: ClaudeOptions & { schema: object }): Promise<T>;
+async function runClaude<T = string>(opts: ClaudeOptions): Promise<T | string> {
     let lastError: Error = new Error("Unknown error");
     for (let attempt = 0; attempt <= CLAUDE_MAX_RETRIES; attempt++) {
         try {
-            return await runClaudeOnce<T>(prompt, signal, systemPrompt, schema);
+            return await runClaudeOnce<T>(opts);
         } catch (e) {
             if (e instanceof DOMException && e.name === "AbortError") throw e;
             lastError = e as Error;
@@ -82,3 +83,4 @@ async function runClaude<T = string>(
 }
 
 export { runClaude };
+export type { ClaudeOptions };

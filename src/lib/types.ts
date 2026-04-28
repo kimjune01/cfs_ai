@@ -21,6 +21,33 @@ type Turn = {
     pagesFound?: number[];
 };
 
+// ─── Query step discriminated union ─────────────────────────────────────────
+
+type StructuredStep = { route: "structured"; intent: string; icao: string; filter?: string };
+type SpatialStep = { route: "spatial"; origin: string; radiusNm: number; filter?: string };
+type UnstructuredStep = { route: "unstructured"; target: string; topic: string };
+type ComplexStep = { route: "complex"; subQueries: string[] };
+
+type QueryStep = StructuredStep | SpatialStep | UnstructuredStep | ComplexStep;
+
+// ─── Decomposer result (v2 shape) ──────────────────────────────────────────
+
+type DecomposeResult = {
+    steps: QueryStep[];
+    aerodromeRefs: string[];
+};
+
+// ─── Layer result (universal return type) ───────────────────────────────────
+
+type LayerResult = {
+    status: "hit" | "empty" | "error";
+    answer?: string;
+    sourcePages: number[];
+    route: string;
+};
+
+// ─── Trace events ───────────────────────────────────────────────────────────
+
 type TraceEvent =
     | { type: "routing" }
     | { type: "decomposing" }
@@ -30,7 +57,12 @@ type TraceEvent =
     | { type: "vision_search"; terms: string[] }
     | { type: "vision_reading"; pages: number[] }
     | { type: "done"; answer: string; sourcePages: number[] }
-    | { type: "error"; message: string };
+    | { type: "error"; message: string }
+    | { type: "route_plan"; steps: QueryStep[] }
+    | { type: "structured_query"; intent: string; icao: string }
+    | { type: "spatial_query"; origin: string; radiusNm: number }
+    | { type: "remarks_lookup"; target: string }
+    | { type: "layer_result"; route: string; status: string };
 
 type EmitFn = (event: TraceEvent) => void;
 
@@ -46,17 +78,12 @@ type AgentResult = {
     answer: string;
     sourcePages: number[];
     searchTerms: string[];
-    toolsCalled: ("vector" | "vision")[];
+    toolsCalled: ("structured" | "spatial" | "remarks" | "vector" | "vision")[];
 };
 
 type EvaluatorResult = {
     status: "ready" | "out_of_scope";
     reason: string;
-};
-
-type DecomposeResult = {
-    queries: string[];
-    aerodromeRefs: string[];
 };
 
 type SynthesizerResult =
@@ -67,11 +94,17 @@ export { SECTIONS };
 export type {
     AgentResult,
     CfsSection,
+    ComplexStep,
     DecomposeResult,
     EmitFn,
     EvaluatorResult,
+    LayerResult,
+    QueryStep,
+    SpatialStep,
+    StructuredStep,
     SynthesizerResult,
     TraceEvent,
     Turn,
+    UnstructuredStep,
     VectorChunk,
 };

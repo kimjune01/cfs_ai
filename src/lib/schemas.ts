@@ -17,23 +17,53 @@ const SYNTHESIZER_SCHEMA = {
     required: ["quality"],
 };
 
-const QUERY_DECOMPOSER_SCHEMA = {
+const DECOMPOSER_V2_SCHEMA = {
     type: "object",
     properties: {
-        subQueries: {
+        steps: {
             type: "array",
             items: {
                 type: "object",
-                properties: {
-                    ref: { type: "string" },
-                    topic: { type: "string" },
-                },
-                required: ["ref", "topic"],
+                oneOf: [
+                    {
+                        properties: {
+                            route: { type: "string", const: "structured" },
+                            intent: { type: "string" },
+                            icao: { type: "string" },
+                            filter: { type: "string" },
+                        },
+                        required: ["route", "intent", "icao"],
+                    },
+                    {
+                        properties: {
+                            route: { type: "string", const: "spatial" },
+                            origin: { type: "string" },
+                            radiusNm: { type: "number", minimum: 1, maximum: 500 },
+                            filter: { type: "string" },
+                        },
+                        required: ["route", "origin", "radiusNm"],
+                    },
+                    {
+                        properties: {
+                            route: { type: "string", const: "unstructured" },
+                            target: { type: "string" },
+                            topic: { type: "string" },
+                        },
+                        required: ["route", "target", "topic"],
+                    },
+                    {
+                        properties: {
+                            route: { type: "string", const: "complex" },
+                            subQueries: { type: "array", items: { type: "string" } },
+                        },
+                        required: ["route", "subQueries"],
+                    },
+                ],
             },
         },
         aerodromeRefs: { type: "array", items: { type: "string" } },
     },
-    required: ["subQueries", "aerodromeRefs"],
+    required: ["steps", "aerodromeRefs"],
 };
 
 const VISION_SCHEMA = {
@@ -45,4 +75,4 @@ const VISION_SCHEMA = {
     required: ["answer", "sourcePages"],
 };
 
-export { EVALUATOR_SCHEMA, QUERY_DECOMPOSER_SCHEMA, SYNTHESIZER_SCHEMA, VISION_SCHEMA };
+export { DECOMPOSER_V2_SCHEMA, EVALUATOR_SCHEMA, SYNTHESIZER_SCHEMA, VISION_SCHEMA };
