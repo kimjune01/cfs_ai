@@ -293,33 +293,40 @@ const main = async () => {
         mkdirSync(DATA_DIR, { recursive: true });
     }
 
-    // Remove existing DB
-    if (existsSync(DB_PATH)) {
-        const { unlinkSync } = await import("fs");
-        unlinkSync(DB_PATH);
-    }
-
     const markdown = readFileSync(INPUT_PATH, "utf-8");
     const sections = splitSections(markdown);
-
-    console.log(`Found ${sections.length} sections to process`);
 
     const db = new Database(DB_PATH);
     createDatabase(db);
 
+    const existingIcaos = new Set(
+        (db.prepare("SELECT icao FROM aerodromes").all() as { icao: string }[]).map((r) => r.icao),
+    );
+
+    const toProcess = sections.filter((s) => {
+        if (s.text.length < 50) return false;
+        const m = /\b(C[A-Z0-9]{3})\s*$/.exec(s.text.split("\n")[0] ?? "");
+        return !m || !existingIcaos.has(m[1]);
+    });
+
+    console.log(`Found ${sections.length} sections, ${existingIcaos.size} already in DB, ${toProcess.length} to process`);
+
     let processed = 0;
+    let skipped = 0;
     let errors = 0;
 
-    for (const section of sections) {
-        // Skip very short sections (unlikely to be aerodrome data)
-        if (section.text.length < 50) continue;
-
+    for (const section of toProcess) {
         try {
             const data = await callHaiku(section.text);
             if (data.icao && /^C[A-Z0-9]{3}$/.test(data.icao)) {
-                insertAerodrome(db, data, section.sourcePage);
-                processed++;
-                process.stdout.write(`\r  Processed ${processed} aerodromes (${errors} errors)`);
+                if (existingIcaos.has(data.icao)) {
+                    skipped++;
+                } else {
+                    insertAerodrome(db, data, section.sourcePage);
+                    existingIcaos.add(data.icao);
+                    processed++;
+                }
+                process.stdout.write(`\r  Processed ${processed}, skipped ${skipped}, errors ${errors}`);
             }
         } catch (e) {
             errors++;
@@ -328,7 +335,7 @@ const main = async () => {
     }
 
     db.close();
-    console.log(`\n\nDone: ${processed} aerodromes written to ${DB_PATH} (${errors} errors)`);
+    console.log(`\n\nDone: ${processed} new, ${skipped} skipped, ${errors} errors. Total: ${existingIcaos.size} aerodromes in ${DB_PATH}`);
 };
 
 main().catch((e) => {
