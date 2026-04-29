@@ -2,9 +2,11 @@ import { formatHistoryForPrompt } from "./agentTools";
 import { emit } from "./emitContext";
 import type { DecomposeResult, QueryStep, Turn } from "./types";
 import { runClaude } from "./utils/claudeUtils";
-import { getDb } from "./utils/db";
+import { resolveIcao, ICAO_RE, CFS_SECTION_MAP } from "./utils/resolve";
 
-// ─── Haiku extracts structured slots — route, ref, intent, filter ──────────
+// ─── Haiku: one call extracts slots + signals complexity ────────────────────
+
+type RawLookup = { ref: string; route: string; intent: string; filter?: string; radiusNm?: number };
 
 const SLOT_SCHEMA = {
     type: "object",
@@ -60,58 +62,33 @@ Examples:
 - "what does MF stand for" → [{ ref: "General", route: "unstructured", intent: "MF abbreviation" }]
 - "runway 31 arrival procedure at Boundary Bay" → [{ ref: "Boundary Bay", route: "unstructured", intent: "runway 31 arrival procedure" }]
 - "fuel at Pitt Meadows and elevation at CZBB" → [{ ref: "Pitt Meadows", route: "structured", intent: "fuel" }, { ref: "CZBB", route: "structured", intent: "elevation" }]
-- "does CYYF publish METAR in the CFS?" → [{ ref: "CYYF", route: "unstructured", intent: "weather reporting services" }]`;
+- "does CYYF publish METAR in the CFS?" → [{ ref: "CYYF", route: "unstructured", intent: "weather reporting services" }]
+- "compare fuel at Anahim Lake and Burns Lake" → [{ ref: "Anahim Lake", route: "structured", intent: "fuel" }, { ref: "Burns Lake", route: "structured", intent: "fuel" }]`;
 
-// ─── Name resolution ────────────────────────────────────────────────────────
+// ─── Composite-specific prompt for Sonnet ───────────────────────────────────
 
-const ICAO_RE = /^C[A-Z0-9]{3}$/;
+const COMPOSITE_SLOT_PROMPT = `Break this composite CFS question into independent terminal lookups.
 
-const CFS_SECTION_MAP: Record<string, string> = {
-    general: "General",
-    planning: "Planning",
-    "radio navigation and communications": "Radio Navigation and Communications",
-    "military flight data and procedures": "Military Flight Data and Procedures",
-    emergency: "Emergency",
-};
+Each lookup should be a single, self-contained query that can be answered by one database lookup or one remarks file read. The results will be collected and synthesized afterward — your job is only to decompose.
 
-const resolveIcao = (identifier: string): string => {
-    const upper = identifier.toUpperCase();
-    if (ICAO_RE.test(upper)) {
-        try {
-            const db = getDb();
-            const exact = db
-                .prepare("SELECT icao FROM aerodromes WHERE icao = ?")
-                .get(upper) as { icao: string } | undefined;
-            if (exact) return exact.icao;
-        } catch { /* pass through */ }
-    }
+Output format is the same: ref, route, intent, filter, radiusNm.
 
-    try {
-        const db = getDb();
-        const lower = identifier.toLowerCase();
-        const candidates = db
-            .prepare("SELECT icao, name FROM aerodromes WHERE LOWER(name) LIKE ?")
-            .all(`%${lower}%`) as { icao: string; name: string }[];
-        if (candidates.length > 0) {
-            const score = (c: { name: string }) => {
-                let s = 0;
-                if (c.name.toLowerCase().startsWith(lower)) s += 10;
-                if (/\b(HOSP|HOSPITAL|HELIPORT|HELI|HELICOPTERS)\b/i.test(c.name)) s -= 5;
-                if (/\(Heli\)/i.test(c.name)) s -= 5;
-                if (/\bINTL\b/i.test(c.name)) s += 3;
-                if (/\bREGIONAL\b/i.test(c.name)) s += 2;
-                if (/\bMUNICIPAL\b/i.test(c.name)) s += 1;
-                return s;
-            };
-            candidates.sort((a, b) => score(b) - score(a));
-            return candidates[0].icao;
-        }
-    } catch { /* pass through */ }
+Route guidance:
+- "structured" — frequency, fuel, elevation, runway data, circuit altitude.
+- "spatial" — proximity searches.
+- "unstructured" — procedures, restrictions, remarks, abbreviations.
 
-    return identifier;
-};
+Break comparison questions into parallel lookups:
+- "compare fuel at X and Y" → two structured fuel lookups
+- "can I land a King Air at Alert Bay?" → structured runway lookup for Alert Bay (the aircraft suitability reasoning happens in synthesis, not here)
+- "fuel and frequency at Pitt Meadows" → two structured lookups at the same aerodrome
 
-// ─── Intent → DB intent mapping (only for structured route) ─────────────────
+Rules:
+- One slot per distinct fact needed.
+- Use the aerodrome name or ICAO exactly as the user wrote it.
+- Do NOT try to answer the question — just identify what data is needed.`;
+
+// ─── Intent normalization (structured route only) ───────────────────────────
 
 const KNOWN_INTENTS = new Set(["frequency", "fuel", "elevation", "runway", "circuit_altitude"]);
 
@@ -125,12 +102,11 @@ const normalizeIntent = (intent: string): string => {
     return intent;
 };
 
-// ─── Build QuerySteps from Haiku slots ──────────────────────────────────────
+// ─── Build QuerySteps from raw slots ────────────────────────────────────────
 
-const buildStep = (lookup: { ref: string; route: string; intent: string; filter?: string; radiusNm?: number }): QueryStep => {
+const buildStep = (lookup: RawLookup): QueryStep => {
     const refLower = lookup.ref.toLowerCase();
 
-    // CFS section → unstructured with canonical name
     const canonical = CFS_SECTION_MAP[refLower];
     if (canonical) {
         return { route: "unstructured", target: canonical, topic: lookup.intent };
@@ -163,51 +139,6 @@ const buildStep = (lookup: { ref: string; route: string; intent: string; filter?
     }
 };
 
-// ─── Haiku classifier: simple or composite? ────────────────────────────────
-
-const CLASSIFIER_SCHEMA = {
-    type: "object",
-    properties: {
-        complexity: { type: "string", enum: ["simple", "composite"] },
-    },
-    required: ["complexity"],
-};
-
-const CLASSIFIER_PROMPT = `Classify this CFS question as "simple" or "composite".
-
-simple: one piece of information at one aerodrome.
-  "tower frequency at CYVR" → simple
-  "elevation at Alert Bay" → simple
-  "noise abatement procedures at CZBB" → simple
-
-composite: multiple pieces of information, multiple aerodromes, comparison, or cross-referencing.
-  "fuel and frequency at Pitt Meadows" → composite
-  "compare fuel at Anahim Lake and Burns Lake" → composite
-  "can I land a King Air at Alert Bay?" → composite (needs runway data + reasoning)
-  "airports near Vancouver with 100LL" → composite
-
-When in doubt, say composite.`;
-
-const classifyComplexity = async (
-    question: string,
-    history: Turn[],
-    signal?: AbortSignal,
-): Promise<"simple" | "composite"> => {
-    const prompt = formatHistoryForPrompt(history) + `<question>\n${question}\n</question>`;
-    const result = await runClaude<{ complexity: "simple" | "composite" }>({
-        prompt,
-        signal,
-        systemPrompt: CLASSIFIER_PROMPT,
-        schema: CLASSIFIER_SCHEMA,
-        model: "haiku",
-    });
-    return result.complexity === "simple" ? "simple" : "composite";
-};
-
-// ─── Resolve lookups into QuerySteps ────────────────────────────────────────
-
-type RawLookup = { ref: string; route: string; intent: string; filter?: string; radiusNm?: number };
-
 const resolveSteps = (lookups: RawLookup[]): { steps: QueryStep[]; aerodromeRefs: string[] } => {
     const steps: QueryStep[] = lookups.map((l) => {
         const step = buildStep(l);
@@ -222,58 +153,14 @@ const resolveSteps = (lookups: RawLookup[]): { steps: QueryStep[]; aerodromeRefs
 
     const aerodromeRefs = [
         ...new Set(
-            lookups
-                .map((l) => resolveIcao(l.ref))
-                .filter((r) => ICAO_RE.test(r)),
+            lookups.map((l) => resolveIcao(l.ref)).filter((r) => ICAO_RE.test(r)),
         ),
     ];
 
     return { steps, aerodromeRefs };
 };
 
-// ─── Simple path: Haiku extracts slots ──────────────────────────────────────
-
-const decomposeSimple = async (
-    question: string,
-    history: Turn[],
-    signal?: AbortSignal,
-): Promise<DecomposeResult> => {
-    const prompt = formatHistoryForPrompt(history) + `<question>\n${question}\n</question>`;
-
-    const raw = await runClaude<{ lookups: RawLookup[] }>({
-        prompt, signal, systemPrompt: SLOT_PROMPT, schema: SLOT_SCHEMA, model: "haiku",
-    });
-
-    const lookups = raw.lookups?.filter((l) => l.ref && l.route && l.intent) ?? [];
-    if (lookups.length === 0) {
-        return { steps: [{ route: "complex" as const, subQueries: [question] }], aerodromeRefs: [] };
-    }
-
-    return resolveSteps(lookups);
-};
-
-// ─── Composite path: Sonnet decomposes into independent terminal queries ────
-
-const decomposeComposite = async (
-    question: string,
-    history: Turn[],
-    signal?: AbortSignal,
-): Promise<DecomposeResult> => {
-    const prompt = formatHistoryForPrompt(history) + `<question>\n${question}\n</question>`;
-
-    const raw = await runClaude<{ lookups: RawLookup[] }>({
-        prompt, signal, systemPrompt: SLOT_PROMPT, schema: SLOT_SCHEMA, model: "sonnet",
-    });
-
-    const lookups = raw.lookups?.filter((l) => l.ref && l.route && l.intent) ?? [];
-    if (lookups.length === 0) {
-        return { steps: [{ route: "complex" as const, subQueries: [question] }], aerodromeRefs: [] };
-    }
-
-    return resolveSteps(lookups);
-};
-
-// ─── Main decomposer ───────────────────────────────────────────────────────
+// ─── Main decomposer: one Haiku call, escalate to Sonnet if composite ──────
 
 const decomposeQueries = async (
     question: string,
@@ -282,13 +169,36 @@ const decomposeQueries = async (
 ): Promise<DecomposeResult> => {
     emit({ type: "decomposing" });
 
-    const complexity = await classifyComplexity(question, history, signal);
+    const prompt = formatHistoryForPrompt(history) + `<question>\n${question}\n</question>`;
 
-    if (complexity === "simple") {
-        return decomposeSimple(question, history, signal);
+    // Single Haiku call — extracts slots
+    const raw = await runClaude<{ lookups: RawLookup[] }>({
+        prompt, signal, systemPrompt: SLOT_PROMPT, schema: SLOT_SCHEMA, model: "haiku",
+    });
+
+    const lookups = raw.lookups?.filter((l) => l.ref && l.route && l.intent) ?? [];
+
+    if (lookups.length === 0) {
+        return { steps: [{ route: "complex" as const, subQueries: [question] }], aerodromeRefs: [] };
     }
 
-    return decomposeComposite(question, history, signal);
+    // Simple: single lookup → resolve and return (terminal pipe)
+    if (lookups.length === 1) {
+        return resolveSteps(lookups);
+    }
+
+    // Composite: multiple lookups → re-decompose with Sonnet for better quality
+    const compositeRaw = await runClaude<{ lookups: RawLookup[] }>({
+        prompt, signal, systemPrompt: COMPOSITE_SLOT_PROMPT, schema: SLOT_SCHEMA, model: "sonnet",
+    });
+
+    const compositeLookups = compositeRaw.lookups?.filter((l) => l.ref && l.route && l.intent) ?? [];
+
+    if (compositeLookups.length === 0) {
+        return resolveSteps(lookups);
+    }
+
+    return resolveSteps(compositeLookups);
 };
 
 export { decomposeQueries };

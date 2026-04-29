@@ -136,21 +136,9 @@ const executeIntent = (step: StructuredStep): LayerResult => {
     }
 
     try {
-        let icao = step.icao.toUpperCase();
-        let stmt = queryFn(icao, step.filter);
-        let rows = stmt.all() as Record<string, unknown>[];
-
-        if (rows.length === 0) {
-            const db = getDb();
-            const resolved = db
-                .prepare("SELECT icao FROM aerodromes WHERE LOWER(name) LIKE ?")
-                .get(`%${step.icao.toLowerCase()}%`) as { icao: string } | undefined;
-            if (resolved && resolved.icao !== icao) {
-                icao = resolved.icao;
-                stmt = queryFn(icao, step.filter);
-                rows = stmt.all() as Record<string, unknown>[];
-            }
-        }
+        const icao = step.icao.toUpperCase();
+        const stmt = queryFn(icao, step.filter);
+        const rows = stmt.all() as Record<string, unknown>[];
 
         if (rows.length === 0 && step.filter && step.intent === "frequency") {
             const allFreqs = INTENT_QUERIES.frequency(icao).all() as Record<string, unknown>[];

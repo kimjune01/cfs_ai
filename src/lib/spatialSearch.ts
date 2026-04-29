@@ -1,5 +1,6 @@
 import type { LayerResult, SpatialStep } from "./types";
 import { getDb } from "./utils/db";
+import { resolveIcao } from "./utils/resolve";
 
 const EARTH_NM = 3440.065; // Earth radius in nautical miles
 
@@ -29,23 +30,14 @@ type AerodromeRow = {
 const resolveOrigin = (
     origin: string,
 ): { icao: string; lat: number; lon: number } | null => {
+    const icao = resolveIcao(origin);
     const db = getDb();
-    const byIcao = db
+    const row = db
         .prepare("SELECT icao, lat, lon FROM aerodromes WHERE icao = ?")
-        .get(origin.toUpperCase()) as { icao: string; lat: number | null; lon: number | null } | undefined;
+        .get(icao) as { icao: string; lat: number | null; lon: number | null } | undefined;
 
-    if (byIcao?.lat != null && byIcao.lon != null) {
-        return { icao: byIcao.icao, lat: byIcao.lat, lon: byIcao.lon };
-    }
-
-    const byName = db
-        .prepare("SELECT icao, lat, lon FROM aerodromes WHERE LOWER(name) LIKE ?")
-        .get(`%${origin.toLowerCase()}%`) as
-        | { icao: string; lat: number | null; lon: number | null }
-        | undefined;
-
-    if (byName?.lat != null && byName.lon != null) {
-        return { icao: byName.icao, lat: byName.lat, lon: byName.lon };
+    if (row?.lat != null && row.lon != null) {
+        return { icao: row.icao, lat: row.lat, lon: row.lon };
     }
 
     return null;

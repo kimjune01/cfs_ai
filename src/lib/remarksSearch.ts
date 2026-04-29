@@ -4,11 +4,10 @@ import { join } from "path";
 import { REMARKS_SYSTEM_PROMPT } from "./prompts";
 import type { LayerResult } from "./types";
 import { runClaude } from "./utils/claudeUtils";
-import { getDb } from "./utils/db";
+import { resolveIcao, ICAO_RE } from "./utils/resolve";
 
 const REMARKS_DIR = join(process.cwd(), "data", "remarks");
 
-const ICAO_RE = /^C[A-Z0-9]{3}$/;
 const VALID_SECTIONS = new Set([
     "General",
     "Planning",
@@ -16,18 +15,6 @@ const VALID_SECTIONS = new Set([
     "Military Flight Data and Procedures",
     "Emergency",
 ]);
-
-const resolveToIcao = (name: string): string | null => {
-    try {
-        const db = getDb();
-        const row = db
-            .prepare("SELECT icao FROM aerodromes WHERE LOWER(name) LIKE ?")
-            .get(`%${name.toLowerCase()}%`) as { icao: string } | undefined;
-        return row?.icao ?? null;
-    } catch {
-        return null;
-    }
-};
 
 const extractSourcePages = (text: string): number[] => {
     const pages = new Set<number>();
@@ -57,10 +44,11 @@ const loadRemarksFile = (target: string): string | null => {
         }
     }
 
-    const resolved = resolveToIcao(target);
-    if (resolved) {
+    const resolved = resolveIcao(target);
+    const resolvedIcao = ICAO_RE.test(resolved) ? resolved : null;
+    if (resolvedIcao) {
         try {
-            return readFileSync(join(REMARKS_DIR, `${resolved}.txt`), "utf-8");
+            return readFileSync(join(REMARKS_DIR, `${resolvedIcao}.txt`), "utf-8");
         } catch {
             return null;
         }

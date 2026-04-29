@@ -8,7 +8,7 @@
  */
 
 import Database from "better-sqlite3";
-import { existsSync, mkdirSync, readFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync } from "fs";
 import { join } from "path";
 
 const DATA_DIR = join(process.cwd(), "data");
@@ -262,7 +262,10 @@ const main = () => {
 
     console.log(`Parsed ${sections.length} aerodrome sections`);
 
-    const db = new Database(DB_PATH);
+    // Fresh DB — write to temp, rename atomically
+    const tmpPath = DB_PATH + ".tmp";
+    if (existsSync(tmpPath)) unlinkSync(tmpPath);
+    const db = new Database(tmpPath);
     createDatabase(db);
 
     const insertAerodrome = db.prepare(
@@ -311,6 +314,10 @@ const main = () => {
     }
 
     db.close();
+
+    // Atomic rename
+    if (existsSync(DB_PATH)) unlinkSync(DB_PATH);
+    renameSync(tmpPath, DB_PATH);
 
     console.log(`Done: ${aerodromes} aerodromes, ${totalFreqs} frequencies, ${totalFuel} fuel, ${totalRunways} runways`);
     console.log(`Written to ${DB_PATH}`);

@@ -31,10 +31,11 @@ const hasAerodromeInDb = (question: string): boolean => {
             const row = db.prepare("SELECT 1 FROM aerodromes WHERE icao = ?").get(icao);
             if (row) return true;
         }
-        // Multi-word name matches only, skip generic single words
-        const words = question.split(/\s+/).filter(
-            (w) => w.length > 3 && !GENERIC_WORDS.has(w.toLowerCase()),
-        );
+        // Strip punctuation, skip generic words, require 5+ chars to reduce false positives
+        const words = question
+            .replace(/[^a-zA-Z0-9\s]/g, "")
+            .split(/\s+/)
+            .filter((w) => w.length >= 5 && !GENERIC_WORDS.has(w.toLowerCase()));
         for (const word of words) {
             const row = db
                 .prepare("SELECT 1 FROM aerodromes WHERE LOWER(name) LIKE ?")
