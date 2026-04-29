@@ -10,10 +10,11 @@
  *   npx tsx scripts/bench/run.ts --filter=composite # tagged subset
  *   npx tsx scripts/bench/run.ts --id=czmt-no-avgas # single case
  *   npx tsx scripts/bench/run.ts --out=results.json # save raw data
+ *   npx tsx scripts/bench/run.ts --adversarial      # adversarial only
  */
 
 import { writeFileSync } from "fs";
-import { join } from "path";
+import { resolve } from "path";
 import { spawn } from "child_process";
 
 import { runAgentLoop } from "../../src/lib/agentLoop.js";
@@ -26,8 +27,10 @@ const ALL_CASES = [...EVAL_CASES, ...ADVERSARIAL_CASES];
 const { ANTHROPIC_API_KEY: _key, ...claudeEnv } = process.env;
 
 const args = process.argv.slice(2);
-const N = parseInt(args.find((a) => a.startsWith("--n="))?.split("=")[1] ?? "20");
+const rawN = parseInt(args.find((a) => a.startsWith("--n="))?.split("=")[1] ?? "20");
+const N = Number.isFinite(rawN) && rawN > 0 ? rawN : 20;
 const TIMEOUT_MS = parseInt(args.find((a) => a.startsWith("--timeout="))?.split("=")[1] ?? "90000");
+const JUDGE_TIMEOUT_MS = 60_000;
 const FILTER_TAG = args.find((a) => a.startsWith("--filter="))?.split("=")[1];
 const FILTER_ID = args.find((a) => a.startsWith("--id="))?.split("=")[1];
 const OUT_PATH = args.find((a) => a.startsWith("--out="))?.split("=")[1];
@@ -49,16 +52,23 @@ interface CaseBenchmark {
     question: string;
     tags: string[];
     n: number;
+    passes: number;
+    fails: number;
+    errors: number;
+    timeouts: number;
     passRate: number;
+    wilsonCI: [number, number];
     bucket: "reliable" | "flaky" | "failing";
     trials: TrialResult[];
     avgDurationMs: number;
+    p95DurationMs: number;
     routeDistribution: Record<string, number>;
 }
 
 interface BenchmarkReport {
     timestamp: string;
     n: number;
+    judgeModel: string;
     cases: CaseBenchmark[];
     summary: {
         total: number;
@@ -66,8 +76,24 @@ interface BenchmarkReport {
         flaky: number;
         failing: number;
         overallPassRate: number;
+        totalErrors: number;
+        totalTimeouts: number;
     };
 }
+
+// ─── Wilson confidence interval ─────────────────────────────────────────────
+
+const wilsonCI = (k: number, n: number, z = 1.96): [number, number] => {
+    if (n === 0) return [0, 1];
+    const p = k / n;
+    const denom = 1 + z * z / n;
+    const center = p + z * z / (2 * n);
+    const margin = z * Math.sqrt((p * (1 - p) + z * z / (4 * n)) / n);
+    return [
+        Math.max(0, (center - margin) / denom),
+        Math.min(1, (center + margin) / denom),
+    ];
+};
 
 // ─── Judge ──────────────────────────────────────────────────────────────────
 
@@ -80,7 +106,7 @@ const JUDGE_SCHEMA = {
     required: ["verdict", "reason"],
 };
 
-const judge = (evalCase: EvalCase, answer: string): Promise<{ verdict: "PASS" | "FAIL"; reason: string }> =>
+const judge = (evalCase: EvalCase, answer: string): Promise<{ verdict: "PASS" | "FAIL" | "ERROR"; reason: string }> =>
     new Promise((resolve) => {
         const prompt = `You are an aviation accuracy judge evaluating an AI assistant's answer about the Canadian Flight Supplement (CFS).
 
@@ -106,15 +132,31 @@ Set verdict to PASS or FAIL with a short reason.`;
             "--model", "sonnet", "--json-schema", JSON.stringify(JUDGE_SCHEMA),
         ], { stdio: ["pipe", "pipe", "pipe"], env: claudeEnv });
 
+        const timer = setTimeout(() => {
+            proc.kill();
+            resolve({ verdict: "ERROR", reason: "Judge timed out" });
+        }, JUDGE_TIMEOUT_MS);
+
         let stdout = "";
+        let stderr = "";
         proc.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
-        proc.on("close", () => {
+        proc.stderr.on("data", (d: Buffer) => (stderr += d.toString()));
+        proc.on("error", (e) => {
+            clearTimeout(timer);
+            resolve({ verdict: "ERROR", reason: `Judge process error: ${e.message}` });
+        });
+        proc.on("close", (code) => {
+            clearTimeout(timer);
+            if (code !== 0 && !stdout.trim()) {
+                resolve({ verdict: "ERROR", reason: `Judge exited ${code}: ${stderr.slice(0, 100)}` });
+                return;
+            }
             try {
                 const parsed = JSON.parse(stdout) as { is_error: boolean; structured_output?: { verdict: "PASS" | "FAIL"; reason: string } };
                 if (parsed.is_error || !parsed.structured_output) throw new Error("judge error");
                 resolve(parsed.structured_output);
             } catch {
-                resolve({ verdict: "FAIL", reason: `Judge parse error: ${stdout.slice(0, 100)}` });
+                resolve({ verdict: "ERROR", reason: `Judge parse error: ${stdout.slice(0, 100)}` });
             }
         });
         proc.stdin.write(prompt);
@@ -187,13 +229,19 @@ const main = async () => {
             const trial = await runTrial(evalCase, i + 1);
             trials.push(trial);
 
-            const symbol = trial.verdict === "PASS" ? "." : trial.verdict === "FAIL" ? "x" : "!";
+            const symbol = trial.verdict === "PASS" ? "." : trial.verdict === "FAIL" ? "x" : trial.verdict === "ERROR" ? "E" : "T";
             process.stdout.write(symbol);
         }
 
         const passes = trials.filter((t) => t.verdict === "PASS").length;
-        const passRate = passes / N;
-        const avgDuration = trials.reduce((s, t) => s + t.durationMs, 0) / N;
+        const fails = trials.filter((t) => t.verdict === "FAIL").length;
+        const errors = trials.filter((t) => t.verdict === "ERROR").length;
+        const timeouts = trials.filter((t) => t.verdict === "TIMEOUT").length;
+        const passRate = passes / trials.length;
+        const ci = wilsonCI(passes, trials.length);
+        const avgDuration = trials.reduce((s, t) => s + t.durationMs, 0) / trials.length;
+        const sortedDurations = trials.map((t) => t.durationMs).sort((a, b) => a - b);
+        const p95Duration = sortedDurations[Math.floor(sortedDurations.length * 0.95)] ?? 0;
 
         const routes: Record<string, number> = {};
         for (const t of trials) {
@@ -203,17 +251,23 @@ const main = async () => {
         }
 
         const b = bucket(passRate);
-        console.log(` ${(passRate * 100).toFixed(0)}% (${b})`);
+        console.log(` ${passes}/${trials.length} ${(passRate * 100).toFixed(0)}% [${(ci[0] * 100).toFixed(0)}-${(ci[1] * 100).toFixed(0)}%] (${b})${errors > 0 ? ` ${errors}E` : ""}${timeouts > 0 ? ` ${timeouts}T` : ""}`);
 
         benchmarks.push({
             id: evalCase.id,
             question: evalCase.question,
             tags: evalCase.tags ?? [],
-            n: N,
+            n: trials.length,
+            passes,
+            fails,
+            errors,
+            timeouts,
             passRate,
+            wilsonCI: ci,
             bucket: b,
             trials,
             avgDurationMs: Math.round(avgDuration),
+            p95DurationMs: Math.round(p95Duration),
             routeDistribution: routes,
         });
     }
@@ -223,18 +277,23 @@ const main = async () => {
     const reliable = benchmarks.filter((b) => b.bucket === "reliable").length;
     const flaky = benchmarks.filter((b) => b.bucket === "flaky").length;
     const failing = benchmarks.filter((b) => b.bucket === "failing").length;
-    const totalPasses = benchmarks.reduce((s, b) => s + b.trials.filter((t) => t.verdict === "PASS").length, 0);
+    const totalPasses = benchmarks.reduce((s, b) => s + b.passes, 0);
     const totalTrials = benchmarks.reduce((s, b) => s + b.n, 0);
+    const totalErrors = benchmarks.reduce((s, b) => s + b.errors, 0);
+    const totalTimeouts = benchmarks.reduce((s, b) => s + b.timeouts, 0);
 
-    console.log(`\n${"─".repeat(50)}`);
+    console.log(`\n${"─".repeat(60)}`);
     console.log(`Reliable (≥90%): ${reliable}`);
     console.log(`Flaky (40-89%):  ${flaky}`);
     console.log(`Failing (<40%):  ${failing}`);
     console.log(`Overall:         ${totalPasses}/${totalTrials} (${((totalPasses / totalTrials) * 100).toFixed(1)}%)`);
+    if (totalErrors > 0) console.log(`Errors:          ${totalErrors}`);
+    if (totalTimeouts > 0) console.log(`Timeouts:        ${totalTimeouts}`);
 
     const report: BenchmarkReport = {
         timestamp: new Date().toISOString(),
         n: N,
+        judgeModel: "sonnet",
         cases: benchmarks,
         summary: {
             total: benchmarks.length,
@@ -242,12 +301,14 @@ const main = async () => {
             flaky,
             failing,
             overallPassRate: totalPasses / totalTrials,
+            totalErrors,
+            totalTimeouts,
         },
     };
 
     const outPath = OUT_PATH
-        ? join(process.cwd(), OUT_PATH)
-        : join(process.cwd(), "scripts", "bench", `results-${new Date().toISOString().slice(0, 19).replace(/:/g, "")}.json`);
+        ? resolve(OUT_PATH)
+        : resolve("scripts", "bench", `results-${new Date().toISOString().slice(0, 19).replace(/:/g, "")}.json`);
 
     writeFileSync(outPath, JSON.stringify(report, null, 2), "utf-8");
     console.log(`\nResults written to ${outPath}`);
