@@ -203,9 +203,14 @@ const extractFuel = (lines: string[]): Fuel[] => {
 
     const fuelLine = fuelMatch[1];
 
-    const types = ["100LL", "MG-1", "JA-1", "JA", "Jet A", "Jet A-1", "Jet B"];
+    const types = ["100LL", "MG-1", "Jet A-1", "JA-1", "Jet A", "Jet B", "JA"];
+    const matched = new Set<string>();
     for (const type of types) {
-        if (fuelLine.includes(type)) {
+        if (!fuelLine.includes(type)) continue;
+        if (type === "JA" && (matched.has("JA-1") || matched.has("Jet A") || matched.has("Jet A-1"))) continue;
+        if (type === "Jet A" && matched.has("Jet A-1")) continue;
+        matched.add(type);
+        {
             // Get everything after the fuel type mention for availability
             const afterType = fuelLine.slice(fuelLine.indexOf(type) + type.length);
             // Availability is usually the scheduling/access info
