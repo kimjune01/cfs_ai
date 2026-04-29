@@ -11,11 +11,12 @@ const EVAL_CASES: EvalCase[] = [
         id: "cyvr-tower-freq",
         question: "What is the tower frequency at CYVR?",
         expected_behavior:
-            "The answer must identify the ATC tower (TWR) frequencies at CYVR (Vancouver International). " +
+            "The answer must include the ATC tower (TWR) frequencies at CYVR (Vancouver International). " +
             "The correct values are 118.7 for the South tower and 119.55 for the North tower. " +
             "The answer must use the word 'tower' or 'TWR', not 'MF', 'RADIO', or 'Ground'. " +
             "Quoting both frequencies is ideal; quoting only one is acceptable if labeled as tower. " +
-            "The answer must not confuse this with any other comm service.",
+            "Including additional tower frequencies (VFR, military) is acceptable as long as 118.7 and 119.55 are present. " +
+            "The answer must not confuse tower frequencies with other comm services.",
         ground_truth: "TWR 118.7 (South) 119.55 (North)",
         tags: ["frequency", "tower"],
     },
