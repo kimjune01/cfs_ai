@@ -163,37 +163,54 @@ const buildStep = (lookup: { ref: string; route: string; intent: string; filter?
     }
 };
 
-// ─── Main decomposer ───────────────────────────────────────────────────────
+// ─── Haiku classifier: simple or composite? ────────────────────────────────
 
-const decomposeQueries = async (
+const CLASSIFIER_SCHEMA = {
+    type: "object",
+    properties: {
+        complexity: { type: "string", enum: ["simple", "composite"] },
+    },
+    required: ["complexity"],
+};
+
+const CLASSIFIER_PROMPT = `Classify this CFS question as "simple" or "composite".
+
+simple: one piece of information at one aerodrome.
+  "tower frequency at CYVR" → simple
+  "elevation at Alert Bay" → simple
+  "noise abatement procedures at CZBB" → simple
+
+composite: multiple pieces of information, multiple aerodromes, comparison, or cross-referencing.
+  "fuel and frequency at Pitt Meadows" → composite
+  "compare fuel at Anahim Lake and Burns Lake" → composite
+  "can I land a King Air at Alert Bay?" → composite (needs runway data + reasoning)
+  "airports near Vancouver with 100LL" → composite
+
+When in doubt, say composite.`;
+
+const classifyComplexity = async (
     question: string,
     history: Turn[],
     signal?: AbortSignal,
-): Promise<DecomposeResult> => {
-    emit({ type: "decomposing" });
-
+): Promise<"simple" | "composite"> => {
     const prompt = formatHistoryForPrompt(history) + `<question>\n${question}\n</question>`;
-
-    const raw = await runClaude<{ lookups: { ref: string; route: string; intent: string; filter?: string; radiusNm?: number }[] }>({
+    const result = await runClaude<{ complexity: "simple" | "composite" }>({
         prompt,
         signal,
-        systemPrompt: SLOT_PROMPT,
-        schema: SLOT_SCHEMA,
+        systemPrompt: CLASSIFIER_PROMPT,
+        schema: CLASSIFIER_SCHEMA,
         model: "haiku",
     });
+    return result.complexity === "simple" ? "simple" : "composite";
+};
 
-    const lookups = raw.lookups?.filter((l) => l.ref && l.route && l.intent) ?? [];
+// ─── Resolve lookups into QuerySteps ────────────────────────────────────────
 
-    if (lookups.length === 0) {
-        return {
-            steps: [{ route: "complex" as const, subQueries: [question] }],
-            aerodromeRefs: [],
-        };
-    }
+type RawLookup = { ref: string; route: string; intent: string; filter?: string; radiusNm?: number };
 
+const resolveSteps = (lookups: RawLookup[]): { steps: QueryStep[]; aerodromeRefs: string[] } => {
     const steps: QueryStep[] = lookups.map((l) => {
         const step = buildStep(l);
-        // Validate resolved refs — unresolved fall back to complex
         if (step.route === "structured" && !ICAO_RE.test(step.icao)) {
             return { route: "complex" as const, subQueries: [`${l.ref} ${l.intent}`] };
         }
@@ -212,6 +229,66 @@ const decomposeQueries = async (
     ];
 
     return { steps, aerodromeRefs };
+};
+
+// ─── Simple path: Haiku extracts slots ──────────────────────────────────────
+
+const decomposeSimple = async (
+    question: string,
+    history: Turn[],
+    signal?: AbortSignal,
+): Promise<DecomposeResult> => {
+    const prompt = formatHistoryForPrompt(history) + `<question>\n${question}\n</question>`;
+
+    const raw = await runClaude<{ lookups: RawLookup[] }>({
+        prompt, signal, systemPrompt: SLOT_PROMPT, schema: SLOT_SCHEMA, model: "haiku",
+    });
+
+    const lookups = raw.lookups?.filter((l) => l.ref && l.route && l.intent) ?? [];
+    if (lookups.length === 0) {
+        return { steps: [{ route: "complex" as const, subQueries: [question] }], aerodromeRefs: [] };
+    }
+
+    return resolveSteps(lookups);
+};
+
+// ─── Composite path: Sonnet decomposes into independent terminal queries ────
+
+const decomposeComposite = async (
+    question: string,
+    history: Turn[],
+    signal?: AbortSignal,
+): Promise<DecomposeResult> => {
+    const prompt = formatHistoryForPrompt(history) + `<question>\n${question}\n</question>`;
+
+    const raw = await runClaude<{ lookups: RawLookup[] }>({
+        prompt, signal, systemPrompt: SLOT_PROMPT, schema: SLOT_SCHEMA, model: "sonnet",
+    });
+
+    const lookups = raw.lookups?.filter((l) => l.ref && l.route && l.intent) ?? [];
+    if (lookups.length === 0) {
+        return { steps: [{ route: "complex" as const, subQueries: [question] }], aerodromeRefs: [] };
+    }
+
+    return resolveSteps(lookups);
+};
+
+// ─── Main decomposer ───────────────────────────────────────────────────────
+
+const decomposeQueries = async (
+    question: string,
+    history: Turn[],
+    signal?: AbortSignal,
+): Promise<DecomposeResult> => {
+    emit({ type: "decomposing" });
+
+    const complexity = await classifyComplexity(question, history, signal);
+
+    if (complexity === "simple") {
+        return decomposeSimple(question, history, signal);
+    }
+
+    return decomposeComposite(question, history, signal);
 };
 
 export { decomposeQueries };
