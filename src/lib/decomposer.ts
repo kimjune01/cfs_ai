@@ -75,10 +75,13 @@ const STRUCTURED_INTENTS: Record<string, string> = {
 
 const SPATIAL_PATTERNS = /\b(near|nearby|within|closest|nearest|around)\b/i;
 
-const CFS_SECTIONS = new Set([
-    "general", "planning", "radio navigation and communications",
-    "military flight data and procedures", "emergency",
-]);
+const CFS_SECTION_MAP: Record<string, string> = {
+    general: "General",
+    planning: "Planning",
+    "radio navigation and communications": "Radio Navigation and Communications",
+    "military flight data and procedures": "Military Flight Data and Procedures",
+    emergency: "Emergency",
+};
 
 const ICAO_RE = /^C[A-Z0-9]{3}$/;
 
@@ -105,9 +108,11 @@ const resolveIcao = (identifier: string): string => {
             const score = (c: { name: string }) => {
                 let s = 0;
                 if (c.name.toLowerCase().startsWith(lower)) s += 10;
-                if (/\b(HOSP|Heli)\b/i.test(c.name)) s -= 5;
+                if (/\b(HOSP|HOSPITAL|HELIPORT|HELI|HELICOPTERS)\b/i.test(c.name)) s -= 5;
+                if (/\(Heli\)/i.test(c.name)) s -= 5;
                 if (/\bINTL\b/i.test(c.name)) s += 3;
                 if (/\bREGIONAL\b/i.test(c.name)) s += 2;
+                if (/\bMUNICIPAL\b/i.test(c.name)) s += 1;
                 return s;
             };
             candidates.sort((a, b) => score(b) - score(a));
@@ -131,14 +136,14 @@ const classifyRoute = (ref: string, topic: string): QueryStep => {
         let filter: string | undefined;
         if (/100ll|avgas/i.test(topicLower)) filter = "fuel_100ll";
         else if (/fuel|ja-1|jet/i.test(topicLower)) filter = "fuel";
-        else if (/ils/i.test(topicLower)) filter = "ils";
 
         return { route: "spatial", origin: resolved, radiusNm: radius, filter };
     }
 
-    // CFS section: ref matches a known section name
-    if (CFS_SECTIONS.has(refLower)) {
-        return { route: "unstructured", target: ref, topic };
+    // CFS section: ref matches a known section name — canonicalize
+    const canonicalSection = CFS_SECTION_MAP[refLower];
+    if (canonicalSection) {
+        return { route: "unstructured", target: canonicalSection, topic };
     }
 
     // Structured: topic matches a known intent
@@ -165,6 +170,11 @@ const extractFreqFilter = (topic: string): string | undefined => {
     if (/ground|gnd/i.test(topic)) return "gnd";
     if (/\bmf\b/i.test(topic)) return "mf";
     if (/radio/i.test(topic)) return "radio";
+    if (/approach|app\b/i.test(topic)) return "arr";
+    if (/arrival|arr\b/i.test(topic)) return "arr";
+    if (/departure|dep\b/i.test(topic)) return "dep";
+    if (/clearance|clnc/i.test(topic)) return "clnc";
+    if (/terminal|tml/i.test(topic)) return "tml";
     return undefined;
 };
 
@@ -202,7 +212,17 @@ const decomposeQueries = async (
         };
     }
 
-    const steps = lookups.map((l) => classifyRoute(l.ref, l.topic));
+    const steps = lookups.map((l) => {
+        const step = classifyRoute(l.ref, l.topic);
+        // If structured/unstructured target didn't resolve to a known ICAO, fall back to complex
+        if (step.route === "structured" && !ICAO_RE.test(step.icao)) {
+            return { route: "complex" as const, subQueries: [`${l.ref} ${l.topic}`] };
+        }
+        if (step.route === "unstructured" && !ICAO_RE.test(step.target) && !CFS_SECTION_MAP[step.target.toLowerCase()]) {
+            return { route: "complex" as const, subQueries: [`${l.ref} ${l.topic}`] };
+        }
+        return step;
+    });
 
     const aerodromeRefs = [
         ...new Set(

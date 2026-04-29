@@ -10,21 +10,35 @@ const ICAO_RE = /\b(C[A-Z0-9]{3})\b/g;
 
 const OUT_OF_SCOPE_PATTERNS = /\b(weather|metar|taf|wind|temperature|visibility|ceiling|forecast|notam)\b/i;
 
+const GENERIC_WORDS = new Set([
+    "airport", "aerodrome", "field", "lake", "river", "bay", "island",
+    "mountain", "creek", "park", "regional", "municipal", "international",
+    "north", "south", "east", "west", "upper", "lower", "port", "point",
+    "city", "town", "village", "centre", "center", "general", "national",
+    "what", "where", "which", "when", "does", "have", "that", "this",
+    "from", "with", "about", "near", "there", "tower", "frequency", "fuel",
+    "runway", "elevation", "approach", "circuit", "open", "close", "time",
+]);
+
 const hasAerodromeInDb = (question: string): boolean => {
     if (OUT_OF_SCOPE_PATTERNS.test(question)) return false;
 
     try {
         const db = getDb();
+        // Only trust explicit ICAO codes
         const icaos = question.match(ICAO_RE) ?? [];
         for (const icao of icaos) {
             const row = db.prepare("SELECT 1 FROM aerodromes WHERE icao = ?").get(icao);
             if (row) return true;
         }
-        const words = question.split(/\s+/).filter((w) => w.length > 3);
+        // Multi-word name matches only, skip generic single words
+        const words = question.split(/\s+/).filter(
+            (w) => w.length > 3 && !GENERIC_WORDS.has(w.toLowerCase()),
+        );
         for (const word of words) {
             const row = db
                 .prepare("SELECT 1 FROM aerodromes WHERE LOWER(name) LIKE ?")
-                .get(`%${word.toLowerCase()}%`);
+                .get(`${word.toLowerCase()}%`);
             if (row) return true;
         }
     } catch { /* DB not available, fall through to LLM */ }
