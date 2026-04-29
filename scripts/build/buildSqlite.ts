@@ -9,9 +9,12 @@
  */
 
 import { spawn } from "child_process";
+import { cpus } from "os";
 import Database from "better-sqlite3";
 import { existsSync, mkdirSync, readFileSync } from "fs";
 import { join } from "path";
+
+const CONCURRENCY = Math.min(cpus().length, 18);
 
 const DATA_DIR = join(process.cwd(), "data");
 const INPUT_PATH = join(DATA_DIR, "parsed_llama_preprocessed.md");
@@ -95,7 +98,7 @@ type AerodromeExtraction = {
     fuel?: { fuel_type: string; availability?: string }[];
 };
 
-const callHaiku = (prompt: string): Promise<AerodromeExtraction> =>
+const callExtractor = (prompt: string): Promise<AerodromeExtraction> =>
     new Promise((resolve, reject) => {
         const proc = spawn(
             "claude",
@@ -105,7 +108,7 @@ const callHaiku = (prompt: string): Promise<AerodromeExtraction> =>
                 "--output-format",
                 "json",
                 "--model",
-                "haiku",
+                "sonnet",
                 "--system-prompt",
                 EXTRACTION_PROMPT,
                 "--json-schema",
@@ -143,24 +146,21 @@ const callHaiku = (prompt: string): Promise<AerodromeExtraction> =>
         proc.stdin.end();
     });
 
-// Split markdown into aerodrome sections, merging Cont'd pages with their parent
-const splitSections = (markdown: string): { text: string; sourcePage: number }[] => {
-    const sectionsByIcao = new Map<string, { text: string; sourcePage: number }>();
-    const orderedIcaos: string[] = [];
+// Split markdown into aerodrome sections — Cont'd pages become separate entries
+// tagged with the same ICAO so their extracted data merges via upsert
+type Section = { text: string; sourcePage: number; icao?: string };
+
+const splitSections = (markdown: string): Section[] => {
+    const sections: Section[] = [];
     const lines = markdown.split("\n");
     let current = "";
-    let currentIcao = "";
+    let currentIcao: string | undefined;
     let currentPage = 0;
     let sectionStartPage = 0;
 
     const flush = () => {
-        if (!currentIcao || !current.trim()) return;
-        const existing = sectionsByIcao.get(currentIcao);
-        if (existing) {
-            existing.text += "\n" + current.trim();
-        } else {
-            sectionsByIcao.set(currentIcao, { text: current.trim(), sourcePage: sectionStartPage });
-            orderedIcaos.push(currentIcao);
+        if (current.trim().length > 0) {
+            sections.push({ text: current.trim(), sourcePage: sectionStartPage, icao: currentIcao });
         }
     };
 
@@ -170,7 +170,7 @@ const splitSections = (markdown: string): { text: string; sourcePage: number }[]
             currentPage = parseInt(pageMatch[1], 10);
         }
 
-        // Check for Cont'd line with ICAO — merge with parent
+        // Cont'd line with ICAO — start new section tagged to parent
         const contdMatch = /cont'?d/i.test(line)
             ? /\b(C[A-Z0-9]{3})\s*$/.exec(line)
             : null;
@@ -178,10 +178,11 @@ const splitSections = (markdown: string): { text: string; sourcePage: number }[]
             flush();
             currentIcao = contdMatch[1];
             current = line + "\n";
+            sectionStartPage = currentPage;
             continue;
         }
 
-        // Check for new aerodrome header
+        // New aerodrome header
         const icaoMatch =
             /^#+\s*(C[A-Z0-9]{3})\b/.exec(line)
             ?? /^(C[A-Z0-9]{3})\s+[-–—]/.exec(line)
@@ -198,7 +199,7 @@ const splitSections = (markdown: string): { text: string; sourcePage: number }[]
     }
 
     flush();
-    return orderedIcaos.map((icao) => sectionsByIcao.get(icao)!);
+    return sections;
 };
 
 const createDatabase = (db: Database.Database): void => {
@@ -321,40 +322,77 @@ const main = async () => {
     const existingIcaos = new Set(
         (db.prepare("SELECT icao FROM aerodromes").all() as { icao: string }[]).map((r) => r.icao),
     );
+    const processedSections = new Set<number>();
 
-    const toProcess = sections.filter((s) => {
+    const toProcess = sections.filter((s, i) => {
         if (s.text.length < 50) return false;
-        const m = /\b(C[A-Z0-9]{3})\s*$/.exec(s.text.split("\n")[0] ?? "");
-        return !m || !existingIcaos.has(m[1]);
+        if (s.icao && existingIcaos.has(s.icao)) return false;
+        return true;
     });
 
     console.log(`Found ${sections.length} sections, ${existingIcaos.size} already in DB, ${toProcess.length} to process`);
 
     let processed = 0;
-    let skipped = 0;
+    let added = 0;
     let errors = 0;
 
-    for (const section of toProcess) {
-        try {
-            const data = await callHaiku(section.text);
-            if (data.icao && /^C[A-Z0-9]{3}$/.test(data.icao)) {
-                if (existingIcaos.has(data.icao)) {
-                    skipped++;
+    const appendChildren = (db: Database.Database, icao: string, data: AerodromeExtraction, sourcePage: number): void => {
+        if (data.runways) {
+            const stmt = db.prepare("INSERT INTO runways (icao, designator, length_ft, surface, circuit_direction, source_page) VALUES (?, ?, ?, ?, ?, ?)");
+            for (const rwy of data.runways) stmt.run(icao, rwy.designator, rwy.length_ft ?? null, rwy.surface ?? null, rwy.circuit_direction ?? null, sourcePage);
+        }
+        if (data.frequencies) {
+            const stmt = db.prepare("INSERT INTO frequencies (icao, service, frequency_mhz, hours, notes, source_page) VALUES (?, ?, ?, ?, ?, ?)");
+            for (const freq of data.frequencies) stmt.run(icao, freq.service, freq.frequency_mhz, freq.hours ?? null, freq.notes ?? null, sourcePage);
+        }
+        if (data.fuel) {
+            const stmt = db.prepare("INSERT INTO fuel (icao, fuel_type, availability, source_page) VALUES (?, ?, ?, ?)");
+            for (const f of data.fuel) stmt.run(icao, f.fuel_type, f.availability ?? null, sourcePage);
+        }
+        if (data.circuit_altitude_ft != null) {
+            db.prepare("UPDATE aerodromes SET circuit_altitude_ft = ? WHERE icao = ? AND circuit_altitude_ft IS NULL").run(data.circuit_altitude_ft, icao);
+        }
+    };
+
+    console.log(`Concurrency: ${CONCURRENCY}`);
+
+    // Fan out extraction, serialize DB writes
+    const pending: Promise<void>[] = [];
+    let idx = 0;
+
+    const processOne = async (): Promise<void> => {
+        while (idx < toProcess.length) {
+            const i = idx++;
+            const section = toProcess[i];
+            try {
+                const data = await callExtractor(section.text);
+                const icao = section.icao ?? data.icao;
+                if (!icao || !/^C[A-Z0-9]{3}$/.test(icao)) continue;
+
+                // DB writes are serialized by SQLite's single-writer lock
+                if (existingIcaos.has(icao)) {
+                    appendChildren(db, icao, data, section.sourcePage);
+                    added++;
                 } else {
                     insertAerodrome(db, data, section.sourcePage);
-                    existingIcaos.add(data.icao);
+                    existingIcaos.add(icao);
                     processed++;
                 }
-                process.stdout.write(`\r  Processed ${processed}, skipped ${skipped}, errors ${errors}`);
+                process.stdout.write(`\r  Processed ${processed}, appended ${added}, errors ${errors}    `);
+            } catch (e) {
+                errors++;
+                console.error(`\n  Error processing section: ${(e as Error).message}`);
             }
-        } catch (e) {
-            errors++;
-            console.error(`\n  Error processing section: ${(e as Error).message}`);
         }
+    };
+
+    for (let w = 0; w < CONCURRENCY; w++) {
+        pending.push(processOne());
     }
+    await Promise.all(pending);
 
     db.close();
-    console.log(`\n\nDone: ${processed} new, ${skipped} skipped, ${errors} errors. Total: ${existingIcaos.size} aerodromes in ${DB_PATH}`);
+    console.log(`\n\nDone: ${processed} new, ${added} appended, ${errors} errors. Total: ${existingIcaos.size} aerodromes in ${DB_PATH}`);
 };
 
 main().catch((e) => {
