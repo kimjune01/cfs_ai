@@ -152,6 +152,22 @@ const executeIntent = (step: StructuredStep): LayerResult => {
             }
         }
 
+        if (rows.length === 0 && step.filter && step.intent === "frequency") {
+            const allFreqs = INTENT_QUERIES.frequency(icao).all() as Record<string, unknown>[];
+            if (allFreqs.length > 0) {
+                const sourcePages = allFreqs
+                    .map((r) => r.source_page as number | null)
+                    .filter((p): p is number => p != null);
+                const available = formatRows("frequency", allFreqs);
+                return {
+                    status: "hit",
+                    answer: `No ${step.filter?.toUpperCase() ?? "matching"} frequency. Available frequencies:\n${available}`,
+                    sourcePages: [...new Set(sourcePages)],
+                    route: "structured",
+                };
+            }
+        }
+
         if (rows.length === 0 && step.filter && step.intent === "fuel") {
             const allFuel = INTENT_QUERIES.fuel(icao).all() as Record<string, unknown>[];
             if (allFuel.length > 0) {
