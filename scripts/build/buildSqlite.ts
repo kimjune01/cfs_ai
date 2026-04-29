@@ -143,13 +143,26 @@ const callHaiku = (prompt: string): Promise<AerodromeExtraction> =>
         proc.stdin.end();
     });
 
-// Split markdown into aerodrome sections
+// Split markdown into aerodrome sections, merging Cont'd pages with their parent
 const splitSections = (markdown: string): { text: string; sourcePage: number }[] => {
-    const sections: { text: string; sourcePage: number }[] = [];
+    const sectionsByIcao = new Map<string, { text: string; sourcePage: number }>();
+    const orderedIcaos: string[] = [];
     const lines = markdown.split("\n");
     let current = "";
+    let currentIcao = "";
     let currentPage = 0;
     let sectionStartPage = 0;
+
+    const flush = () => {
+        if (!currentIcao || !current.trim()) return;
+        const existing = sectionsByIcao.get(currentIcao);
+        if (existing) {
+            existing.text += "\n" + current.trim();
+        } else {
+            sectionsByIcao.set(currentIcao, { text: current.trim(), sourcePage: sectionStartPage });
+            orderedIcaos.push(currentIcao);
+        }
+    };
 
     for (const line of lines) {
         const pageMatch = /<!--\s*page:(\d+)\s*-->/.exec(line);
@@ -157,29 +170,35 @@ const splitSections = (markdown: string): { text: string; sourcePage: number }[]
             currentPage = parseInt(pageMatch[1], 10);
         }
 
-        const icaoMatch = /cont'?d/i.test(line) ? null : (
-            /^#+\s*(C[A-Z0-9]{3})\b/.exec(line)
-            ?? /^(C[A-Z0-9]{3})\s+[-–—]/.exec(line)
-            ?? /\bBC\b.*\b(C[A-Z0-9]{3})\s*$/.exec(line)
-        );
-        if (icaoMatch && current.trim().length > 0) {
-            sections.push({ text: current.trim(), sourcePage: sectionStartPage });
-            current = "";
-            sectionStartPage = currentPage;
+        // Check for Cont'd line with ICAO — merge with parent
+        const contdMatch = /cont'?d/i.test(line)
+            ? /\b(C[A-Z0-9]{3})\s*$/.exec(line)
+            : null;
+        if (contdMatch) {
+            flush();
+            currentIcao = contdMatch[1];
+            current = line + "\n";
+            continue;
         }
 
-        if (!current && !icaoMatch) {
+        // Check for new aerodrome header
+        const icaoMatch =
+            /^#+\s*(C[A-Z0-9]{3})\b/.exec(line)
+            ?? /^(C[A-Z0-9]{3})\s+[-–—]/.exec(line)
+            ?? /\bBC\b.*\b(C[A-Z0-9]{3})\s*$/.exec(line);
+
+        if (icaoMatch) {
+            flush();
+            currentIcao = icaoMatch[1];
+            current = "";
             sectionStartPage = currentPage;
         }
 
         current += line + "\n";
     }
 
-    if (current.trim().length > 0) {
-        sections.push({ text: current.trim(), sourcePage: sectionStartPage });
-    }
-
-    return sections;
+    flush();
+    return orderedIcaos.map((icao) => sectionsByIcao.get(icao)!);
 };
 
 const createDatabase = (db: Database.Database): void => {
