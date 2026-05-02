@@ -104,4 +104,17 @@ const remarksSearch = async (
     }
 };
 
-export { remarksSearch };
+const extractServicesNote = (target: string): { note: string; sourcePages: number[] } | null => {
+    const text = loadRemarksFile(target);
+    if (!text) return null;
+
+    const match = text.match(/^SERVICES\s+(.+)$/m);
+    if (!match || !match[1].trim()) return null;
+
+    const note = match[1].trim();
+    if (/^FUEL\b/i.test(note)) return null;
+
+    return { note, sourcePages: extractSourcePages(text) };
+};
+
+export { extractServicesNote, remarksSearch };

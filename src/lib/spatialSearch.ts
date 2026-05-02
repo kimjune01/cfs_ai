@@ -50,10 +50,11 @@ type NearbyResult = {
     sourcePage: number | null;
 };
 
+const MAX_NEAREST = 10;
+
 const findNearby = (step: SpatialStep): LayerResult => {
-    const radiusNm = Number.isFinite(step.radiusNm) && step.radiusNm > 0
-        ? Math.min(step.radiusNm, 500)
-        : 30;
+    const hasExplicitRadius = Number.isFinite(step.radiusNm) && (step.radiusNm as number) > 0;
+    const radiusNm = hasExplicitRadius ? Math.min(step.radiusNm as number, 500) : Infinity;
 
     try {
         const db = getDb();
@@ -68,32 +69,46 @@ const findNearby = (step: SpatialStep): LayerResult => {
             .all() as AerodromeRow[];
 
         let nearby: NearbyResult[] = allAerodromes
-            .filter((a) => a.icao !== resolved.icao && a.lat !== null && a.lon !== null)
+            .filter((a) => a.lat !== null && a.lon !== null)
             .map((a) => ({
                 icao: a.icao,
                 name: a.name,
-                distanceNm: haversineNm(resolved.lat, resolved.lon, a.lat!, a.lon!),
+                distanceNm: a.icao === resolved.icao
+                    ? 0
+                    : haversineNm(resolved.lat, resolved.lon, a.lat!, a.lon!),
                 sourcePage: a.source_page,
             }))
             .filter((a) => a.distanceNm <= radiusNm)
             .sort((a, b) => a.distanceNm - b.distanceNm);
 
-        // Apply filter if set
+        let fuelByIcao: Map<string, string[]> | undefined;
+
         if (step.filter) {
             const filter = step.filter.toLowerCase();
             if (filter.startsWith("fuel_")) {
                 const fuelType = filter.replace("fuel_", "").replace("ll", "LL");
-                const icaosWithFuel = new Set(
-                    (
-                        db
-                            .prepare(
-                                "SELECT DISTINCT icao FROM fuel WHERE LOWER(fuel_type) LIKE ?",
-                            )
-                            .all(`%${fuelType.toLowerCase()}%`) as { icao: string }[]
-                    ).map((r) => r.icao),
-                );
+                const fuelRows = db
+                    .prepare(
+                        "SELECT icao, fuel_type, availability FROM fuel WHERE LOWER(fuel_type) LIKE ?",
+                    )
+                    .all(`%${fuelType.toLowerCase()}%`) as { icao: string; fuel_type: string; availability: string | null }[];
+
+                const icaosWithFuel = new Set(fuelRows.map((r) => r.icao));
                 nearby = nearby.filter((a) => icaosWithFuel.has(a.icao));
+
+                fuelByIcao = new Map();
+                for (const r of fuelRows) {
+                    const parts = [r.fuel_type];
+                    if (r.availability) parts.push(`(${r.availability})`);
+                    const existing = fuelByIcao.get(r.icao) ?? [];
+                    existing.push(parts.join(" "));
+                    fuelByIcao.set(r.icao, existing);
+                }
             }
+        }
+
+        if (!hasExplicitRadius) {
+            nearby = nearby.slice(0, MAX_NEAREST);
         }
 
         if (nearby.length === 0) {
@@ -109,10 +124,12 @@ const findNearby = (step: SpatialStep): LayerResult => {
         ];
 
         const answer = nearby
-            .map(
-                (a) =>
-                    `${a.icao} (${a.name}) — ${a.distanceNm.toFixed(1)} NM`,
-            )
+            .map((a) => {
+                let line = `${a.icao} (${a.name}) — ${a.distanceNm.toFixed(1)} NM`;
+                const fuel = fuelByIcao?.get(a.icao);
+                if (fuel) line += ` — ${fuel.join(", ")}`;
+                return line;
+            })
             .join("\n");
 
         return { status: "hit", answer, sourcePages, route: "spatial" };

@@ -168,6 +168,7 @@ const EVAL_CASES: EvalCase[] = [
         expected_behavior:
             "The decomposer must infer CYVR from 'Vancouver airport' without asking for clarification — this is unambiguous. " +
             "The pipeline must then answer with the CYVR tower frequencies: 118.7 (South) and 119.55 (North). " +
+            "Including additional tower frequencies (VFR, military) is acceptable as long as 118.7 and 119.55 are present. " +
             "An answer that asks for the ICAO code is WRONG — the inference should be automatic. " +
             "An answer with incorrect frequencies or labeling the frequency as MF is also WRONG.",
         ground_truth: "TWR 118.7 (South) 119.55 (North)",

@@ -24,7 +24,7 @@ type Turn = {
 // ─── Query step discriminated union ─────────────────────────────────────────
 
 type StructuredStep = { route: "structured"; intent: string; icao: string; filter?: string };
-type SpatialStep = { route: "spatial"; origin: string; radiusNm: number; filter?: string };
+type SpatialStep = { route: "spatial"; origin: string; radiusNm?: number; filter?: string };
 type UnstructuredStep = { route: "unstructured"; target: string; topic: string };
 type ComplexStep = { route: "complex"; subQueries: string[] };
 
@@ -60,7 +60,7 @@ type TraceEvent =
     | { type: "error"; message: string }
     | { type: "route_plan"; steps: QueryStep[] }
     | { type: "structured_query"; intent: string; icao: string }
-    | { type: "spatial_query"; origin: string; radiusNm: number }
+    | { type: "spatial_query"; origin: string; radiusNm?: number }
     | { type: "remarks_lookup"; target: string }
     | { type: "layer_result"; route: string; status: string }
     | { type: "composite_synthesis"; factCount: number };

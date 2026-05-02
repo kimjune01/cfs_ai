@@ -78,8 +78,9 @@ Examples:
 - "Can I get 100LL at Masset?" → steps: [{ route: "structured", intent: "fuel", icao: "Masset", filter: "100LL" }], aerodromeRefs: ["Masset"]
 - "What does ATIS stand for?" → steps: [{ route: "unstructured", target: "General", topic: "ATIS abbreviation meaning" }], aerodromeRefs: []
 - "Airports within 30nm of CYVR with 100LL?" → steps: [{ route: "spatial", origin: "CYVR", radiusNm: 30, filter: "fuel_100ll" }], aerodromeRefs: ["CYVR"]
+- "Airports near Vancouver with 100LL?" → steps: [{ route: "spatial", origin: "CYVR", filter: "fuel_100ll" }], aerodromeRefs: ["CYVR"]
 - "What are the noise abatement procedures at CZBB?" → steps: [{ route: "unstructured", target: "CZBB", topic: "noise abatement procedures" }], aerodromeRefs: ["CZBB"]
-- "Where can I find avgas near Vancouver?" → steps: [{ route: "spatial", origin: "CYVR", radiusNm: 30, filter: "fuel_100ll" }], aerodromeRefs: ["CYVR"]`;
+- "Where can I find avgas near Vancouver?" → steps: [{ route: "spatial", origin: "CYVR", filter: "fuel_100ll" }], aerodromeRefs: ["CYVR"]`;
 
 const REMARKS_SYSTEM_PROMPT = `You are the Canadian Flight Supplement Aviation Assistant. Answer the user's question using ONLY the CFS text provided below.
 

@@ -36,7 +36,7 @@ For each distinct piece of information requested, output:
 - route: "structured" for data fields, "spatial" for proximity queries, "unstructured" for procedures/remarks/abbreviations
 - intent: what to look up
 - filter: optional narrowing term (e.g., "twr" for tower frequency, "100LL" for avgas)
-- radiusNm: only for spatial, default 30
+- radiusNm: only for spatial. Set ONLY when user specifies a distance ("within 30 NM"). Omit for "near" / "nearby" / "closest" — the system will find the nearest available.
 
 Route guidance:
 - "structured" — frequency, fuel, elevation, runway data, circuit altitude. These are database fields.
@@ -56,7 +56,7 @@ CFS sections: General, Planning, Radio Navigation and Communications, Military F
 
 Examples:
 - "tower frequency at CYVR" → [{ ref: "CYVR", route: "structured", intent: "frequency", filter: "twr" }]
-- "airports near Vancouver with 100LL" → [{ ref: "Vancouver", route: "spatial", intent: "fuel availability", filter: "100LL", radiusNm: 30 }]
+- "airports near Vancouver with 100LL" → [{ ref: "Vancouver", route: "spatial", intent: "fuel availability", filter: "100LL" }]
 - "noise abatement at CYVR" → [{ ref: "CYVR", route: "unstructured", intent: "noise abatement procedures" }]
 - "can I do circuit training at Pitt Meadows at night?" → [{ ref: "Pitt Meadows", route: "unstructured", intent: "circuit training restrictions" }]
 - "what does MF stand for" → [{ ref: "General", route: "unstructured", intent: "MF abbreviation" }]
@@ -116,14 +116,14 @@ const buildStep = (lookup: RawLookup): QueryStep => {
 
     switch (lookup.route) {
         case "spatial": {
-            const radius = typeof lookup.radiusNm === "number" && lookup.radiusNm > 0
-                ? Math.min(lookup.radiusNm, 500) : 30;
+            const radiusNm = typeof lookup.radiusNm === "number" && lookup.radiusNm > 0
+                ? Math.min(lookup.radiusNm, 500) : undefined;
             let filter: string | undefined;
             if (lookup.filter) {
                 if (/100ll|avgas/i.test(lookup.filter)) filter = "fuel_100ll";
                 else if (/fuel|ja/i.test(lookup.filter)) filter = "fuel";
             }
-            return { route: "spatial", origin: resolved, radiusNm: radius, filter };
+            return { route: "spatial", origin: resolved, radiusNm, filter };
         }
 
         case "structured": {

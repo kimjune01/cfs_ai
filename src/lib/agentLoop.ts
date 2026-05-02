@@ -4,7 +4,7 @@ import { emit, runWithEmit } from "./emitContext";
 import { evaluate } from "./evaluator";
 import { fanOutSearch } from "./fanOut";
 import { COMPOSITE_SYNTHESIS_PROMPT } from "./prompts";
-import { remarksSearch } from "./remarksSearch";
+import { extractServicesNote, remarksSearch } from "./remarksSearch";
 import { findNearby } from "./spatialSearch";
 import { executeIntent } from "./structuredSearch";
 import { synthesize } from "./synthesizer";
@@ -83,6 +83,16 @@ const routeStructured = async (
     emit({ type: "layer_result", route: "structured", status: result.status });
 
     if (result.status === "hit") {
+        if (step.intent === "fuel") {
+            const services = extractServicesNote(step.icao);
+            if (services) {
+                result = {
+                    ...result,
+                    answer: `${result.answer}\n\nServices: ${services.note}`,
+                    sourcePages: [...new Set([...result.sourcePages, ...services.sourcePages])],
+                };
+            }
+        }
         return { result, tools: ["structured"] };
     }
 
@@ -272,13 +282,14 @@ const runAgentLoop = async (
         // Phase 4: Terminal vs composite pipe
         let answer: string;
 
+        const needsSynthesis = steps.length > 1
+            || /^(can|could|should|is it|would)\b/i.test(question);
+
         if (hitAnswers.length === 0) {
             answer = "Not found in CFS. The requested information could not be located in the Canadian Flight Supplement data available.";
-        } else if (steps.length === 1) {
-            // Terminal pipe — single step, return directly, no Sonnet
+        } else if (!needsSynthesis) {
             answer = hitAnswers[0] ?? "Not found in CFS.";
         } else {
-            // Composite pipe — distilled facts as JSON to Sonnet for cross-result reasoning
             const facts = stepResults.map(({ result }, i) => {
                 const step = steps[i];
                 const fact: Record<string, unknown> = {
