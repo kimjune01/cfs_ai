@@ -274,6 +274,81 @@ const EVAL_CASES: EvalCase[] = [
             "An answer addressing only one part is incomplete.",
         tags: ["cross-route", "spatial", "decomposer", "composite"],
     },
+
+    // ─── Bug-hunt regression cases ────────────────────────────────────────────
+
+    {
+        id: "resolver-suffix-langley-regional-airport",
+        question: "What is the tower frequency at Langley Regional Airport?",
+        expected_behavior:
+            "Must strip the suffixes and resolve 'Langley Regional Airport' to CYNJ. " +
+            "The answer must state 119.0 MHz as the tower frequency, ideally with tower hours 1630-0230Z. " +
+            "Answering with only MF 119.0 is incomplete.",
+        ground_truth: "CYNJ TWR 119.0 1630-0230Z; MF 119.0 0230-1630Z",
+        tags: ["resolver", "suffix-stripping", "frequency", "tower"],
+    },
+
+    {
+        id: "fuel-avgas-synonym-cypk",
+        question: "Is avgas available at Pitt Meadows?",
+        expected_behavior:
+            "Must treat 'avgas' as a 100LL fuel lookup. " +
+            "The answer must say yes and identify 100LL as available at CYPK. " +
+            "Mentioning Cardlock is ideal.",
+        ground_truth: "CYPK FUEL 100LL (Cardlock)",
+        tags: ["fuel", "avgas-synonym", "filter-normalization"],
+    },
+
+    {
+        id: "frequency-arrival-alias-cyxx",
+        question: "What is the arrival frequency at CYXX?",
+        expected_behavior:
+            "Must normalize 'arrival' to ARR and return the ARR row, not tower/ground/MF. " +
+            "The answer must include 132.7 MHz and may note 'avail on gnd'.",
+        ground_truth: "CYXX ARR 132.7 (avail on gnd)",
+        tags: ["frequency", "arrival-alias", "filter-normalization"],
+    },
+
+    {
+        id: "frequency-terminal-alias-cyvr",
+        question: "What is the terminal frequency at CYVR?",
+        expected_behavior:
+            "Must normalize 'terminal' to TML and return the terminal frequency, not arrival/departure/tower. " +
+            "The answer must include 125.2 MHz.",
+        ground_truth: "CYVR TML 125.2",
+        tags: ["frequency", "terminal-alias", "filter-normalization"],
+    },
+
+    {
+        id: "unknown-icao-remarks-early-exit-cyzz",
+        question: "What are the night restrictions at CYZZ?",
+        expected_behavior:
+            "Must early-exit because CYZZ is not in the BC CFS database. " +
+            "The answer should say CYZZ is not found in the BC CFS database and must not hallucinate restrictions.",
+        ground_truth: "CYZZ not in DB",
+        tags: ["negative", "unknown-icao", "early-exit"],
+    },
+
+    {
+        id: "fuel-services-enrichment-burns-lake-avgas",
+        question: "Does Burns Lake have avgas?",
+        expected_behavior:
+            "Must resolve avgas to 100LL, answer yes, and include the SERVICES enrichment from remarks. " +
+            "The answer must mention that 1 hour prior notice is required.",
+        ground_truth: "CYPZ FUEL 100LL, JA; SERVICES 1 hr PN",
+        tags: ["fuel", "avgas-synonym", "services-enrichment"],
+    },
+
+    {
+        id: "remarks-arrival-procedure-czbb",
+        question: "At Boundary Bay, what reporting point is used for arrivals from the east to Runway 25?",
+        expected_behavior:
+            "Must route to remarks/procedures, not structured frequency search. " +
+            "The answer must identify AUTOMALL as the reporting point for arrivals from the east to Runway 25. " +
+            "Mentioning 'AUTOMALL ARRIVAL straight in Rwy 25' is ideal.",
+        ground_truth: "CZBB remarks: arrivals fr E report AUTOMALL; expect AUTOMALL ARRIVAL straight in Rwy 25",
+        tags: ["remarks", "arrival-procedure"],
+    },
 ];
 
 export type { EvalCase };
