@@ -54,8 +54,15 @@ Rules:
 
 CFS sections: General, Planning, Radio Navigation and Communications, Military Flight Data and Procedures, Emergency.
 
+Filter guidance for frequency lookups:
+- Use filter ONLY when the user specifies a service type: "tower" → "twr", "arrival" → "arrival", "terminal" → "terminal", "ground" → "gnd", "departure" → "dep"
+- Do NOT add a filter for generic frequency questions ("what frequency do I call", "what frequency at X") — omitting the filter returns all frequencies, which is correct for general questions.
+
 Examples:
 - "tower frequency at CYVR" → [{ ref: "CYVR", route: "structured", intent: "frequency", filter: "twr" }]
+- "arrival frequency at CYXX" → [{ ref: "CYXX", route: "structured", intent: "frequency", filter: "arrival" }]
+- "terminal frequency at CYVR" → [{ ref: "CYVR", route: "structured", intent: "frequency", filter: "terminal" }]
+- "what frequency do I call at Pitt Meadows?" → [{ ref: "Pitt Meadows", route: "structured", intent: "frequency" }]
 - "airports near Vancouver with 100LL" → [{ ref: "Vancouver", route: "spatial", intent: "fuel availability", filter: "100LL" }]
 - "noise abatement at CYVR" → [{ ref: "CYVR", route: "unstructured", intent: "noise abatement procedures" }]
 - "can I do circuit training at Pitt Meadows at night?" → [{ ref: "Pitt Meadows", route: "unstructured", intent: "circuit training restrictions" }]
