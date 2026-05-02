@@ -14,7 +14,7 @@ const FREQ_ALIASES: Record<string, string> = {
     approach: "app",
     departure: "dep",
     arrival: "arr",
-    terminal: "trml",
+    terminal: "tml",
 };
 
 const normalizeFreqFilter = (filter: string): string => {

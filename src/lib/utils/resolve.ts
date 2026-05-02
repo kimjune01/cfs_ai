@@ -12,6 +12,15 @@ const CFS_SECTION_MAP: Record<string, string> = {
 
 const STRIP_SUFFIXES = /\s+(?:airport|aerodrome|airfield|airstrip|a\/d|intl|international|regional|municipal)\s*$/i;
 
+const stripAllSuffixes = (s: string): string => {
+    let prev = s;
+    for (;;) {
+        const next = prev.replace(STRIP_SUFFIXES, "");
+        if (next === prev) return next;
+        prev = next;
+    }
+};
+
 const resolveIcao = (identifier: string): string => {
     const upper = identifier.toUpperCase();
     if (ICAO_RE.test(upper)) {
@@ -24,12 +33,13 @@ const resolveIcao = (identifier: string): string => {
         } catch { /* pass through */ }
     }
 
-    const stripped = identifier.replace(STRIP_SUFFIXES, "");
-    const variants = stripped !== identifier ? [identifier, stripped] : [identifier];
+    const stripped = stripAllSuffixes(identifier);
+    const variants = new Set([identifier]);
+    if (stripped !== identifier) variants.add(stripped);
 
     try {
         const db = getDb();
-        for (const variant of variants) {
+        for (const variant of [...variants]) {
             const lower = variant.toLowerCase();
             const candidates = db
                 .prepare("SELECT icao, name FROM aerodromes WHERE LOWER(name) LIKE ?")
