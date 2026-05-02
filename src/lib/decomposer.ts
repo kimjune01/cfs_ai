@@ -133,7 +133,11 @@ const buildStep = (lookup: RawLookup): QueryStep => {
             if (!KNOWN_INTENTS.has(intent)) {
                 return { route: "unstructured", target: resolved, topic: lookup.intent };
             }
-            return { route: "structured", intent, icao: resolved, filter: lookup.filter };
+            let filter = lookup.filter;
+            if (filter && intent === "fuel" && /avgas/i.test(filter)) {
+                filter = "100LL";
+            }
+            return { route: "structured", intent, icao: resolved, filter };
         }
 
         default:

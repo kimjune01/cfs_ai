@@ -13,6 +13,7 @@ const FREQ_ALIASES: Record<string, string> = {
     clearance: "clnc",
     approach: "app",
     departure: "dep",
+    arrival: "arr",
     terminal: "trml",
 };
 
