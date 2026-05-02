@@ -121,7 +121,9 @@ const buildStep = (lookup: RawLookup): QueryStep => {
             let filter: string | undefined;
             if (lookup.filter) {
                 if (/100ll|avgas/i.test(lookup.filter)) filter = "fuel_100ll";
-                else if (/fuel|ja/i.test(lookup.filter)) filter = "fuel";
+                else if (/ja-?1/i.test(lookup.filter)) filter = "fuel_ja-1";
+                else if (/\bja\b/i.test(lookup.filter)) filter = "fuel_ja";
+                else if (/fuel/i.test(lookup.filter)) filter = "fuel_any";
             }
             return { route: "spatial", origin: resolved, radiusNm, filter };
         }
@@ -143,7 +145,9 @@ const resolveSteps = (lookups: RawLookup[]): { steps: QueryStep[]; aerodromeRefs
     const steps: QueryStep[] = lookups.map((l) => {
         const step = buildStep(l);
         if (step.route === "structured" && !ICAO_RE.test(step.icao)) {
-            return { route: "complex" as const, subQueries: [`${l.ref} ${l.intent}`] };
+            const parts = [l.ref, l.intent];
+            if (l.filter) parts.push(l.filter);
+            return { route: "complex" as const, subQueries: [parts.join(" ")] };
         }
         if (step.route === "unstructured" && !ICAO_RE.test(step.target) && !CFS_SECTION_MAP[step.target.toLowerCase()]) {
             return { route: "complex" as const, subQueries: [`${l.ref} ${l.intent}`] };

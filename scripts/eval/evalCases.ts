@@ -228,6 +228,52 @@ const EVAL_CASES: EvalCase[] = [
         ground_truth: "CYSQ: 01/19 3949ft gravel; CBBC: 13/31 3702ft ASPH",
         tags: ["composite", "flight-planning", "runway"],
     },
+
+    // ─── Edge cases from codex review ─────────────────────────────────────────
+
+    {
+        id: "reasoning-no-trigger-word",
+        question: "A King Air at Alert Bay: runway okay?",
+        expected_behavior:
+            "Must reason about aircraft suitability despite not starting with can/could/should/is it/would. " +
+            "CYAL has Rwy 09/27, 2985 ft, ASPH. A King Air needs ~2500 ft. " +
+            "A correct answer addresses whether the runway is adequate (marginal but possible under good conditions). " +
+            "An answer that only lists runway data without addressing suitability is incomplete.",
+        ground_truth: "Rwy 09/27 2985x75 ASPH — marginal for King Air",
+        tags: ["reasoning", "heuristic-gap", "runway"],
+    },
+
+    {
+        id: "unknown-icao-cyzz",
+        question: "What fuel is available at CYZZ?",
+        expected_behavior:
+            "CYZZ is not a known aerodrome in the CFS database. " +
+            "The answer must state the aerodrome is not found or not covered. " +
+            "Must NOT invent fuel data. Must NOT say it is 'out of scope' for geographic reasons unless verified.",
+        tags: ["negative", "hallucination-guard"],
+    },
+
+    {
+        id: "fuel-services-prior-notice",
+        question: "Does Burns Lake have 100LL and does it require prior notice?",
+        expected_behavior:
+            "CYPZ (Burns Lake) has 100LL and JA. The SERVICES line says 1 hr PN (prior notice). " +
+            "The answer must confirm 100LL availability AND mention the 1 hour prior notice requirement. " +
+            "An answer that only lists fuel types without the prior notice is incomplete.",
+        ground_truth: "CYPZ: 100LL, JA — SERVICES 1 hr PN",
+        tags: ["fuel", "services", "remarks-enrichment"],
+    },
+
+    {
+        id: "cross-route-spatial-plus-general",
+        question: "Which airports near Vancouver have 100LL, and what does MF mean?",
+        expected_behavior:
+            "Must decompose into spatial fuel search plus General-section abbreviation lookup. " +
+            "The answer must list nearby airports with 100LL availability details " +
+            "AND define MF as Mandatory Frequency. " +
+            "An answer addressing only one part is incomplete.",
+        tags: ["cross-route", "spatial", "decomposer", "composite"],
+    },
 ];
 
 export type { EvalCase };

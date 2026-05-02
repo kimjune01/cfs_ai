@@ -84,11 +84,13 @@ const remarksSearch = async (
             model: "haiku",
         });
 
-        if (
-            answer.toLowerCase().includes("not found") ||
-            answer.toLowerCase().includes("not present") ||
-            answer.toLowerCase().includes("not mentioned")
-        ) {
+        const lower = answer.toLowerCase().trim();
+        const isNegative = lower.startsWith("not found")
+            || lower.startsWith("not present")
+            || lower.startsWith("not mentioned")
+            || lower === "not found in this cfs entry."
+            || lower === "not found in this cfs entry";
+        if (isNegative) {
             return { status: "empty", sourcePages, route: "remarks" };
         }
 

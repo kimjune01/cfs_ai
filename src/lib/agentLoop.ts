@@ -69,12 +69,14 @@ const routeStructured = async (
 ): Promise<{ result: LayerResult; tools: AgentResult["toolsCalled"] }> => {
     emit({ type: "structured_query", intent: step.intent, icao: step.icao });
     let result = executeIntent(step);
+    let effectiveIcao = step.icao;
 
     if (result.status !== "hit" && aerodromeRefs.length > 0) {
         for (const ref of aerodromeRefs) {
             const retried = executeIntent({ ...step, icao: ref });
             if (retried.status === "hit") {
                 result = retried;
+                effectiveIcao = ref;
                 break;
             }
         }
@@ -84,7 +86,7 @@ const routeStructured = async (
 
     if (result.status === "hit") {
         if (step.intent === "fuel") {
-            const services = extractServicesNote(step.icao);
+            const services = extractServicesNote(effectiveIcao);
             if (services) {
                 result = {
                     ...result,

@@ -86,12 +86,11 @@ const findNearby = (step: SpatialStep): LayerResult => {
         if (step.filter) {
             const filter = step.filter.toLowerCase();
             if (filter.startsWith("fuel_")) {
-                const fuelType = filter.replace("fuel_", "").replace("ll", "LL");
-                const fuelRows = db
-                    .prepare(
-                        "SELECT icao, fuel_type, availability FROM fuel WHERE LOWER(fuel_type) LIKE ?",
-                    )
-                    .all(`%${fuelType.toLowerCase()}%`) as { icao: string; fuel_type: string; availability: string | null }[];
+                const isAny = filter === "fuel_any";
+                const fuelRows = isAny
+                    ? db.prepare("SELECT icao, fuel_type, availability FROM fuel").all() as { icao: string; fuel_type: string; availability: string | null }[]
+                    : db.prepare("SELECT icao, fuel_type, availability FROM fuel WHERE LOWER(fuel_type) LIKE ?")
+                        .all(`%${filter.replace("fuel_", "").replace("ll", "LL").toLowerCase()}%`) as { icao: string; fuel_type: string; availability: string | null }[];
 
                 const icaosWithFuel = new Set(fuelRows.map((r) => r.icao));
                 nearby = nearby.filter((a) => icaosWithFuel.has(a.icao));

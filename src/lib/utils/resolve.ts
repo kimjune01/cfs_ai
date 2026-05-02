@@ -10,6 +10,8 @@ const CFS_SECTION_MAP: Record<string, string> = {
     emergency: "Emergency",
 };
 
+const STRIP_SUFFIXES = /\s+(?:airport|aerodrome|airfield|airstrip|a\/d|intl|international|regional|municipal)\s*$/i;
+
 const resolveIcao = (identifier: string): string => {
     const upper = identifier.toUpperCase();
     if (ICAO_RE.test(upper)) {
@@ -22,25 +24,32 @@ const resolveIcao = (identifier: string): string => {
         } catch { /* pass through */ }
     }
 
+    const stripped = identifier.replace(STRIP_SUFFIXES, "");
+    const variants = stripped !== identifier ? [identifier, stripped] : [identifier];
+
     try {
         const db = getDb();
-        const lower = identifier.toLowerCase();
-        const candidates = db
-            .prepare("SELECT icao, name FROM aerodromes WHERE LOWER(name) LIKE ?")
-            .all(`%${lower}%`) as { icao: string; name: string }[];
-        if (candidates.length > 0) {
-            const score = (c: { name: string }) => {
-                let s = 0;
-                if (c.name.toLowerCase().startsWith(lower)) s += 10;
-                if (/\b(HOSP|HOSPITAL|HELIPORT|HELI|HELICOPTERS)\b/i.test(c.name)) s -= 5;
-                if (/\(Heli\)/i.test(c.name)) s -= 5;
-                if (/\bINTL\b/i.test(c.name)) s += 3;
-                if (/\bREGIONAL\b/i.test(c.name)) s += 2;
-                if (/\bMUNICIPAL\b/i.test(c.name)) s += 1;
-                return s;
-            };
-            candidates.sort((a, b) => score(b) - score(a));
-            return candidates[0].icao;
+        for (const variant of variants) {
+            const lower = variant.toLowerCase();
+            const candidates = db
+                .prepare("SELECT icao, name FROM aerodromes WHERE LOWER(name) LIKE ?")
+                .all(`%${lower}%`) as { icao: string; name: string }[];
+            if (candidates.length > 0) {
+                const score = (c: { name: string }) => {
+                    let s = 0;
+                    const nameLower = c.name.toLowerCase();
+                    if (nameLower === lower) s += 20;
+                    else if (nameLower.startsWith(lower)) s += 10;
+                    if (/\b(HOSP|HOSPITAL|HELIPORT|HELI|HELICOPTERS)\b/i.test(c.name)) s -= 5;
+                    if (/\(Heli\)/i.test(c.name)) s -= 5;
+                    if (/\bINTL\b/i.test(c.name)) s += 3;
+                    if (/\bREGIONAL\b/i.test(c.name)) s += 2;
+                    if (/\bMUNICIPAL\b/i.test(c.name)) s += 1;
+                    return s;
+                };
+                candidates.sort((a, b) => score(b) - score(a));
+                return candidates[0].icao;
+            }
         }
     } catch { /* pass through */ }
 
