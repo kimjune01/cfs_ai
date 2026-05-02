@@ -20,7 +20,16 @@ import type {
     UnstructuredStep,
 } from "./types";
 import { runClaude } from "./utils/claudeUtils";
+import { ICAO_RE } from "./utils/resolve";
+import { getDb } from "./utils/db";
 import { visionSearch } from "./visionSearch";
+
+const icaoExistsInDb = (icao: string): boolean => {
+    if (!ICAO_RE.test(icao)) return false;
+    try {
+        return !!getDb().prepare("SELECT 1 FROM aerodromes WHERE icao = ?").get(icao);
+    } catch { return false; }
+};
 
 // ─── Per-step routing with fallback chains ──────────────────────────────────
 
@@ -113,6 +122,18 @@ const routeStructured = async (
         return { result: remarks, tools: ["structured", "remarks"] };
     }
 
+    if (ICAO_RE.test(step.icao) && !icaoExistsInDb(step.icao)) {
+        return {
+            result: {
+                status: "empty",
+                sourcePages: [],
+                route: "structured",
+                answer: `${step.icao} is not found in the BC CFS database.`,
+            },
+            tools: ["structured"],
+        };
+    }
+
     // Fallback to vector+vision
     const fallback = await vectorVisionFallback(question, aerodromeRefs, history, signal);
     const tools: AgentResult["toolsCalled"] = ["structured", "remarks"];
@@ -159,6 +180,18 @@ const routeUnstructured = async (
 
     if (result.status === "hit") {
         return { result, tools: ["remarks"] };
+    }
+
+    if (ICAO_RE.test(step.target) && !icaoExistsInDb(step.target)) {
+        return {
+            result: {
+                status: "empty",
+                sourcePages: [],
+                route: "remarks",
+                answer: `${step.target} is not found in the BC CFS database.`,
+            },
+            tools: ["remarks"],
+        };
     }
 
     // Fallback to vector+vision
